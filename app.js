@@ -1,6 +1,6 @@
 /**
  * 全面雲端化入出庫兼採購系統 - app.js
- * 完整整合 HTML Modal 視窗（品名、分類、厚度、尺寸、安全庫存、MOQ 一步到位）
+ * 純 HTML Modal 視窗版（無 prompt），一步到位管理主檔與交易
  */
 
 const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx1dHo2tUXua5hRPYxdKy7T7HmZ8wLdpZxrZna-matd_xsN6E_QHZ-bOdoudAAt78PsoA/exec";
@@ -81,7 +81,6 @@ function renderSummary() {
 function setupEvents() {
   $('search-input')?.addEventListener('input', renderSummary);
   
-  // 分類標籤點擊篩選
   $('categoryChips')?.addEventListener('click', e => {
     if (e.target.classList.contains('chip')) {
       currentCat = e.target.dataset.cat;
@@ -93,32 +92,27 @@ function setupEvents() {
     }
   });
 
-  // 收起 / 展開明細
   $('btnToggleSummary')?.addEventListener('click', () => {
     isCollapsed = !isCollapsed;
     $('inventoryStockSummary').style.display = isCollapsed ? 'none' : 'block';
     $('btnToggleSummary').innerText = isCollapsed ? '展開 ▼' : '收起 ▲';
   });
 
-  // 點擊「＋」按鈕開啟完整主檔 Modal
   $('btnAddMasterQuick')?.addEventListener('click', () => {
     openMasterModal(normStr($('txMaterialName')?.value), normStr($('txThickness')?.value));
   });
 
-  // 關閉主檔 Modal
   $('btnCloseMaster')?.addEventListener('click', closeMasterModal);
   $('masterModal')?.addEventListener('click', e => {
     if (e.target.id === 'masterModal') closeMasterModal();
   });
 
-  // 選擇分類按鈕 (開啟分類選擇器)
   $('btnOpenCategoryPicker')?.addEventListener('click', openCatPicker);
   $('btnCloseCategoryPicker')?.addEventListener('click', closeCatPicker);
   $('categoryPickerModal')?.addEventListener('click', e => {
     if (e.target.id === 'categoryPickerModal') closeCatPicker();
   });
 
-  // 新增自定義分類
   $('btnAddCustomCategory')?.addEventListener('click', () => {
     let newCat = prompt('請輸入新分類名稱：');
     if (newCat && newCat.trim()) {
@@ -132,10 +126,8 @@ function setupEvents() {
     }
   });
 
-  // 儲存主檔按鈕
   $('btnSaveNewMaster')?.addEventListener('click', saveMasterFromModal);
 
-  // 批次刪除分類
   $('btnOpenCatModal')?.addEventListener('click', openBatchDeleteModal);
   $('btnCloseCatBatchModal')?.addEventListener('click', closeBatchDeleteModal);
   $('catBatchModal')?.addEventListener('click', e => {
@@ -143,7 +135,6 @@ function setupEvents() {
   });
   $('btnConfirmBatchDelete')?.addEventListener('click', confirmBatchDelete);
 
-  // 點擊庫存卡片直接帶入交易表單
   document.addEventListener('click', e => {
     let card = e.target.closest('.stock-card-item');
     if (card) {
@@ -153,14 +144,10 @@ function setupEvents() {
     }
   });
 
-  // 入庫 / 出庫按鈕
   $('btnIn')?.addEventListener('click', () => handleTx('IN'));
   $('btnOut')?.addEventListener('click', () => handleTx('OUT'));
 }
 
-/**
- * 開啟完整的 HTML 主檔管理視窗 (Modal)
- */
 function openMasterModal(name = '', thick = '') {
   editingMasterId = Date.now();
   if ($('newMasterName')) $('newMasterName').value = normStr(name);
@@ -195,9 +182,6 @@ function closeCatPicker() {
   if ($('categoryPickerModal')) $('categoryPickerModal').style.display = 'none';
 }
 
-/**
- * 從 Modal 儲存物料主檔至雲端 (相容 payload 與 master 雙格式)
- */
 async function saveMasterFromModal() {
   let name = normStr($('newMasterName')?.value);
   let category = $('newMasterCategory')?.value || '其他';
@@ -225,7 +209,6 @@ async function saveMasterFromModal() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         action: "saveMaster",
-        master: itemObj,
         payload: itemObj
       })
     });
@@ -271,7 +254,7 @@ async function confirmBatchDelete() {
     let res = await fetch(GAS_WEB_APP_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "batchDeleteCategories", payload: selected, categories: selected })
+      body: JSON.stringify({ action: "batchDeleteCategories", payload: selected })
     });
     let r = await res.json();
     if (r.status === 'success') {
@@ -294,9 +277,6 @@ async function saveCategoriesToCloud() {
   });
 }
 
-/**
- * 處理入庫 / 出庫交易 (查無主檔時自動開啟完整主檔 Modal)
- */
 async function handleTx(type) {
   let name = normStr($('txMaterialName')?.value);
   let thick = normStr($('txThickness')?.value);
@@ -304,7 +284,6 @@ async function handleTx(type) {
 
   if (!name || !qty || qty <= 0) return alert("請完整填寫品名與數量！");
 
-  // 檢查主檔是否存在
   let found = inventoryData.find(i => normStr(i.name) === name && (normStr(i.thickness) === thick || !thick));
   if (!found) {
     if (confirm(`⚠️ 查無「${name}」的物料主檔，是否立即建立主檔？`)) {
@@ -321,8 +300,7 @@ async function handleTx(type) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         action: "addTransaction",
-        payload: logObj,
-        log: logObj
+        payload: logObj
       })
     });
     let r = await res.json();
