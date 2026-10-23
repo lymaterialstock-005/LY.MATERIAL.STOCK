@@ -1,8 +1,3 @@
-/**
- * 全面雲端化入出庫兼採購系統 - app.js
- * 完美解決 GAS 跨網域 (CORS) 與連線失敗問題
- */
-
 const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx1dHo2tUXua5hRPYxdKy7T7HmZ8wLdpZxrZna-matd_xsN6E_QHZ-bOdoudAAt78PsoA/exec";
 
 let inventoryData = [], categoriesList = [
@@ -12,10 +7,6 @@ let inventoryData = [], categoriesList = [
 ], currentCat = '全部', isCollapsed = false, editingMasterId = null;
 
 const $ = id => document.getElementById(id);
-
-/**
- * 字串正規化：自動轉大寫，小數點前自動補零 (如 .25 變 0.25)
- */
 const normStr = s => s ? s.toString().trim().toUpperCase().replace(/(^|[^0-9])\.([0-9]+)/g, '$10.$2') : '';
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -36,7 +27,6 @@ async function fetchInventoryData() {
     }
   } catch (e) {
     console.error(e);
-    alert("雲端連線失敗");
   } finally {
     setBar(false);
   }
@@ -182,9 +172,6 @@ function closeCatPicker() {
   if ($('categoryPickerModal')) $('categoryPickerModal').style.display = 'none';
 }
 
-/**
- * 儲存主檔至雲端（使用 no-cors 模式避開跨網域阻擋）
- */
 async function saveMasterFromModal() {
   let name = normStr($('newMasterName')?.value);
   let category = $('newMasterCategory')?.value || '其他';
@@ -211,7 +198,7 @@ async function saveMasterFromModal() {
       method: "POST",
       mode: "no-cors",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action: "saveMaster", payload: itemObj, master: itemObj })
+      body: JSON.stringify({ action: "saveMaster", master: itemObj, payload: itemObj })
     });
     alert(`✅ 成功新增物料主檔：「${name}」！`);
     closeMasterModal();
@@ -253,7 +240,7 @@ async function confirmBatchDelete() {
       method: "POST",
       mode: "no-cors",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action: "batchDeleteCategories", payload: selected, categories: selected })
+      body: JSON.stringify({ action: "batchDeleteCategories", categories: selected, payload: selected })
     });
     alert("✅ 批次刪除成功！");
     closeBatchDeleteModal();
@@ -272,13 +259,10 @@ async function saveCategoriesToCloud() {
     method: "POST",
     mode: "no-cors",
     headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify({ action: "saveCategories", payload: categoriesList })
+    body: JSON.stringify({ action: "saveCategories", categories: categoriesList, payload: categoriesList })
   });
 }
 
-/**
- * 處理入庫 / 出庫交易（使用 no-cors 模式）
- */
 async function handleTx(type) {
   let name = normStr($('txMaterialName')?.value);
   let thick = normStr($('txThickness')?.value);
@@ -302,7 +286,7 @@ async function handleTx(type) {
       method: "POST",
       mode: "no-cors",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action: "addTransaction", payload: logObj, log: logObj })
+      body: JSON.stringify({ action: "addLog", log: logObj, payload: logObj })
     });
 
     alert(type === 'IN' ? "✅ 入庫成功！" : "✅ 出庫成功！");
