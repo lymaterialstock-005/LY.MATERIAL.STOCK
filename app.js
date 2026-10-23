@@ -1,3 +1,8 @@
+/**
+ * 全面雲端化入出庫兼採購系統 - app.js
+ * 完整對應新版後端 API、規格欄位與正規化比對
+ */
+
 const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx1dHo2tUXua5hRPYxdKy7T7HmZ8wLdpZxrZna-matd_xsN6E_QHZ-bOdoudAAt78PsoA/exec";
 
 let inventoryData = [], categoriesList = [
@@ -19,14 +24,14 @@ async function fetchInventoryData() {
     setBar(true);
     let res = await fetch(GAS_WEB_APP_URL + "?action=getInventory");
     let data = await res.json();
-    if (data) {
-      if (data.masters) inventoryData = data.masters;
+    if (data && data.status === 'success') {
+      inventoryData = data.masters || [];
       if (data.categories && data.categories.length > 0) categoriesList = data.categories;
       renderChips();
       renderSummary();
     }
   } catch (e) {
-    console.error(e);
+    console.error("載入失敗：", e);
   } finally {
     setBar(false);
   }
@@ -118,13 +123,6 @@ function setupEvents() {
 
   $('btnSaveNewMaster')?.addEventListener('click', saveMasterFromModal);
 
-  $('btnOpenCatModal')?.addEventListener('click', openBatchDeleteModal);
-  $('btnCloseCatBatchModal')?.addEventListener('click', closeBatchDeleteModal);
-  $('catBatchModal')?.addEventListener('click', e => {
-    if (e.target.id === 'catBatchModal') closeBatchDeleteModal();
-  });
-  $('btnConfirmBatchDelete')?.addEventListener('click', confirmBatchDelete);
-
   document.addEventListener('click', e => {
     let card = e.target.closest('.stock-card-item');
     if (card) {
@@ -194,61 +192,22 @@ async function saveMasterFromModal() {
 
   try {
     setBar(true);
-    await fetch(GAS_WEB_APP_URL, {
+    let res = await fetch(GAS_WEB_APP_URL, {
       method: "POST",
-      mode: "no-cors",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action: "saveMaster", master: itemObj, payload: itemObj })
+      body: JSON.stringify({ action: "saveMaster", master: itemObj })
     });
-    alert(`✅ 成功新增物料主檔：「${name}」！`);
-    closeMasterModal();
-    await new Promise(r => setTimeout(r, 1200));
-    fetchInventoryData();
+    let r = await res.json();
+    if (r.status === 'success') {
+      alert(`✅ 成功新增物料主檔：「${name}」！`);
+      closeMasterModal();
+      fetchInventoryData();
+    } else {
+      alert("儲存失敗：" + (r.message || "未知錯誤"));
+    }
   } catch (e) {
     console.error(e);
-    alert("儲存主檔失敗");
-  } finally {
-    setBar(false);
-  }
-}
-
-function openBatchDeleteModal() {
-  const listDiv = $('catCheckboxList');
-  if (!listDiv) return;
-  listDiv.innerHTML = categoriesList.map(c => `
-    <label style="display:flex;align-items:center;gap:8px;background:#222;padding:8px;border-radius:6px;color:#fff;cursor:pointer;">
-      <input type="checkbox" value="${c}" class="cat-batch-checkbox" style="width:18px;height:18px;">
-      <span>${c}</span>
-    </label>
-  `).join('');
-  if ($('catBatchModal')) $('catBatchModal').style.display = 'flex';
-}
-
-function closeBatchDeleteModal() {
-  if ($('catBatchModal')) $('catBatchModal').style.display = 'none';
-}
-
-async function confirmBatchDelete() {
-  let checks = document.querySelectorAll('.cat-batch-checkbox:checked');
-  let selected = Array.from(checks).map(cb => cb.value);
-  if (!selected.length) return alert('請至少勾選一個分類！');
-  if (!confirm(`⚠️ 確定要刪除選中的 ${selected.length} 個分類及底下所有物料嗎？`)) return;
-
-  try {
-    setBar(true);
-    await fetch(GAS_WEB_APP_URL, {
-      method: "POST",
-      mode: "no-cors",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action: "batchDeleteCategories", categories: selected, payload: selected })
-    });
-    alert("✅ 批次刪除成功！");
-    closeBatchDeleteModal();
-    await new Promise(r => setTimeout(r, 1200));
-    fetchInventoryData();
-  } catch (e) {
-    console.error(e);
-    alert("刪除失敗");
+    alert("儲存主檔連線失敗");
   } finally {
     setBar(false);
   }
@@ -257,9 +216,8 @@ async function confirmBatchDelete() {
 async function saveCategoriesToCloud() {
   await fetch(GAS_WEB_APP_URL, {
     method: "POST",
-    mode: "no-cors",
     headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify({ action: "saveCategories", categories: categoriesList, payload: categoriesList })
+    body: JSON.stringify({ action: "saveCategories", categories: categoriesList })
   });
 }
 
@@ -270,7 +228,7 @@ async function handleTx(type) {
 
   if (!name || !qty || qty <= 0) return alert("請完整填寫品名與數量！");
 
-  let found = inventoryData.find(i => normStr(i.name) === name && (normStr(i.thickness) === thick || !thick));
+  let found = inventoryData.find(i => normStr(i.name) === name);
   if (!found) {
     if (confirm(`⚠️ 查無「${name}」的物料主檔，是否立即建立主檔？`)) {
       openMasterModal(name, thick);
@@ -280,25 +238,27 @@ async function handleTx(type) {
 
   try {
     setBar(true);
-    let logObj = { id: Date.now(), type, materialName: name, thickness: thick || '0', qty, time: new Date().toLocaleString() };
+    let logObj = { id: Date.now(), type, materialName: name, thickness: thick || found.thickness || '0', qty, time: new Date().toLocaleString() };
     
-    await fetch(GAS_WEB_APP_URL, {
+    let res = await fetch(GAS_WEB_APP_URL, {
       method: "POST",
-      mode: "no-cors",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action: "addLog", log: logObj, payload: logObj })
+      body: JSON.stringify({ action: "addLog", log: logObj })
     });
+    let r = await res.json();
 
-    alert(type === 'IN' ? "✅ 入庫成功！" : "✅ 出庫成功！");
-    if ($('txQty')) $('txQty').value = '';
-    if ($('txMaterialName')) $('txMaterialName').value = '';
-    if ($('txThickness')) $('txThickness').value = '';
-    
-    await new Promise(r => setTimeout(r, 1200));
-    fetchInventoryData();
+    if (r.status === 'success') {
+      alert(type === 'IN' ? "✅ 入庫成功！" : "✅ 出庫成功！");
+      if ($('txQty')) $('txQty').value = '';
+      if ($('txMaterialName')) $('txMaterialName').value = '';
+      if ($('txThickness')) $('txThickness').value = '';
+      fetchInventoryData();
+    } else {
+      alert("交易失敗：" + (r.message || "未知錯誤"));
+    }
   } catch (e) {
     console.error(e);
-    alert("交易失敗");
+    alert("交易連線失敗");
   } finally {
     setBar(false);
   }
