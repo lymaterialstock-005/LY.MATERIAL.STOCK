@@ -1,9 +1,9 @@
 /**
- * 雲端化入出庫兼採購系統 - app.js
- * 完整對應 Google Apps Script 後端 API 與標準化格式
+ * 全面雲端化入出庫兼採購系統 - app.js
+ * 已更新最新 GAS Webhook URL & 試算表 ID 對接
  */
 
-const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx1dHo2tUXua5hRPYxdKy7T7HmZ8wLdpZxrZna-matd_xsN6E_QHZ-bOdoudAAt78PsoA/exec";
+const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxtr3DAUo0wTPbW2bGz04WUN0Kw4vy16LvL0HmyU-8Q1h4xlkO8FoSGl_IsDlpx5-7pTw/exec";
 
 let inventoryData = [], categoriesList = [
   '德昱興', '華立', '樂榮', '羅傑斯', '昶瑞', '倍速', '好加', '冠好', 
