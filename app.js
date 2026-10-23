@@ -1,9 +1,9 @@
 /**
  * 全面雲端化入出庫兼採購系統 - app.js
- * 已更新最新 GAS Webhook URL & 試算表 ID 對接
+ * 已更新最新 GAS Webhook URL 與試算表對接
  */
 
-const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxtr3DAUo0wTPbW2bGz04WUN0Kw4vy16LvL0HmyU-8Q1h4xlkO8FoSGl_IsDlpx5-7pTw/exec";
+const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxk4L9wsfWAaTi_MF7HWxVXhGJ5qguE6c3PeTDUS0ZIPX9YkxD6tU8_Z3IPhVSqjwumvw/exec";
 
 let inventoryData = [], categoriesList = [
   '德昱興', '華立', '樂榮', '羅傑斯', '昶瑞', '倍速', '好加', '冠好', 
