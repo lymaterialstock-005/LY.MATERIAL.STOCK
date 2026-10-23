@@ -1,6 +1,6 @@
 /**
  * 全面雲端化入出庫兼採購系統 - app.js
- * 完美結合您的完整介面邏輯與 Google 雲端試算表後端
+ * 配合 index.html 與 style.css 使用
  */
 
 const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx1dHo2tUXua5hRPYxdKy7T7HmZ8wLdpZxrZna-matd_xsN6E_QHZ-bOdoudAAt78PsoA/exec";
@@ -14,10 +14,18 @@ let materialCategories = [
 ];
 let currentCategoryFilter = '全部';
 let isSummaryCollapsed = false;
-let editingMasterId = null;
 
 const $ = id => document.getElementById(id);
-const normStr = str => (str || '').toString().trim().toUpperCase();
+
+/**
+ * 字串正規化工具：自動轉大寫，並自動將小數點前補零（例如 .05 變 0.05）
+ */
+const normStr = str => {
+  if (!str) return '';
+  let s = str.toString().trim().toUpperCase();
+  s = s.replace(/(^|[^0-9])\.([0-9]+)/g, '$10.$2');
+  return s;
+};
 
 document.addEventListener("DOMContentLoaded", () => {
   initSystem();
@@ -41,8 +49,8 @@ async function fetchInventoryData() {
     let response = await fetch(GAS_WEB_APP_URL + "?action=getInventory");
     let result = await response.json();
     
-    if (result && result.data) {
-      inventoryData = result.data;
+    if (result && result.masters) {
+      inventoryData = result.masters;
       
       // 動態提取不重複的分類
       const dynamicCats = [...new Set(inventoryData.map(item => item.category))];
@@ -87,34 +95,34 @@ function loadStockSummary() {
 
   let filtered = inventoryData;
   if (currentCategoryFilter === 'WARN') {
-    filtered = inventoryData.filter(item => Number(item.stock) <= Number(item.safeStock));
+    filtered = inventoryData.filter(item => Number(item.safetyStock) > 0 && Number(item.stock || 0) <= Number(item.safetyStock));
   } else if (currentCategoryFilter !== '全部') {
     filtered = inventoryData.filter(item => item.category === currentCategoryFilter);
   }
 
   // 搜尋關鍵字過濾
   const searchInput = $('search-input');
-  const keyword = searchInput ? searchInput.value.trim().toLowerCase() : '';
+  const keyword = searchInput ? normStr(searchInput.value) : '';
   if (keyword) {
-    filtered = filtered.filter(item => item.name.toLowerCase().includes(keyword));
+    filtered = filtered.filter(item => normStr(item.name).includes(keyword));
   }
 
   if (filtered.length === 0) {
-    summaryDiv.innerHTML = `<div style="padding: 20px; text-align: center; color: #888;">目前沒有符合的物料資料（請點擊「+」新增主檔或至 Google 試算表新增）</div>`;
+    summaryDiv.innerHTML = `<div style="padding: 20px; text-align: center; color: #888;">目前沒有符合的物料資料</div>`;
     return;
   }
 
   summaryDiv.innerHTML = filtered.map(item => {
-    const isLowStock = Number(item.stock) <= Number(item.safeStock);
+    const isLowStock = Number(item.safetyStock) > 0 && Number(item.stock || 0) <= Number(item.safetyStock);
     const statusClass = isLowStock ? 'k-warn' : 'k-ok';
 
     return `
       <div class="card stock-card-item ${statusClass}" data-name="${item.name}" data-thickness="${item.thickness || ''}" style="margin-bottom: 8px; padding: 12px; cursor: pointer; border-radius: 8px;">
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <div style="font-weight: bold; font-size: 15px;">${item.name} ${item.thickness ? '(' + item.thickness + 'mm)' : ''}</div>
-          <div style="font-size: 13px; color: ${isLowStock ? '#ef4444' : '#10b981'}; font-weight: bold;">庫存：${item.stock} ${item.unit || '片'}</div>
+          <div style="font-size: 13px; color: ${isLowStock ? '#ef4444' : '#10b981'}; font-weight: bold;">庫存：${item.stock || 0} 片</div>
         </div>
-        <div style="font-size: 12px; color: #aaa; margin-top: 4px;">分類：${item.category} | 規格：${item.size || '無'} | 安全庫存：${item.safeStock}</div>
+        <div style="font-size: 12px; color: #aaa; margin-top: 4px;">分類：${item.category} | 規格：${item.size || '無'} | 安全庫存：${item.safetyStock || 0}</div>
       </div>
     `;
   }).join("");
@@ -169,25 +177,13 @@ function setupEventListeners() {
   const btnAddMasterQuick = $('btnAddMasterQuick');
   if (btnAddMasterQuick) {
     btnAddMasterQuick.addEventListener('click', () => {
-      const currentName = $('txMaterialName') ? $('txMaterialName').value : '';
-      const currentThick = $('txThickness') ? $('txThickness').value : '';
+      const currentName = normStr($('txMaterialName')?.value);
+      const currentThick = normStr($('txThickness')?.value);
       openMasterModal(currentName, currentThick);
     });
   }
 
-  // 5. 關閉主檔視窗
-  const btnCloseMaster = $('btnCloseMaster');
-  if (btnCloseMaster) {
-    btnCloseMaster.addEventListener('click', closeMasterModal);
-  }
-
-  // 6. 儲存新主檔至雲端
-  const btnSaveNewMaster = $('btnSaveNewMaster');
-  if (btnSaveNewMaster) {
-    btnSaveNewMaster.addEventListener('click', saveNewMasterToCloud);
-  }
-
-  // 7. 點擊卡片帶入異動表單
+  // 5. 點擊卡片帶入異動表單
   document.addEventListener('click', e => {
     const card = e.target.closest('.stock-card-item');
     if (card) {
@@ -197,7 +193,7 @@ function setupEventListeners() {
     }
   });
 
-  // 8. 入庫 / 出庫按鈕
+  // 6. 入庫 / 出庫按鈕
   const btnIn = $('btnIn') || $('btn-in');
   const btnOut = $('btnOut') || $('btn-out');
 
@@ -212,10 +208,9 @@ function selectItemToTransaction(name, thickness) {
   const nameInput = $('txMaterialName') || $('form-item-name');
   const thickInput = $('txThickness');
   
-  if (nameInput) nameInput.value = name;
-  if (thickInput && thickness) thickInput.value = thickness;
+  if (nameInput) nameInput.value = normStr(name);
+  if (thickInput && thickness) thickInput.value = normStr(thickness);
 
-  // 自動捲動到異動表單區
   const txCard = $('txCard');
   if (txCard) {
     txCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -223,59 +218,32 @@ function selectItemToTransaction(name, thickness) {
 }
 
 /**
- * 開啟主檔編輯 Modal
+ * 開啟主檔快速新增 (透過 Prompt)
  */
 function openMasterModal(defaultName = '', defaultThickness = '') {
-  const modal = $('masterModal');
-  if ($('newMasterName')) $('newMasterName').value = defaultName;
-  if ($('newMasterThickness')) $('newMasterThickness').value = defaultThickness;
-  
-  if (modal) {
-    modal.style.display = 'flex';
-  } else {
-    // 若無 Modal 則用 prompt 替代
-    let name = prompt("請輸入物料名稱：", defaultName);
-    if (name && name.trim()) {
-      let category = prompt("請輸入分類（如：德昱興、華立等）：", "其他");
-      saveMasterDirectly(category || "其他", name.trim());
-    }
+  let name = prompt("請輸入物料名稱：", defaultName);
+  if (name && name.trim()) {
+    let category = prompt("請輸入分類（如：德昱興、華立、其他）：", "其他");
+    let thickness = prompt("請輸入厚度 (mm)：", defaultThickness);
+    saveMasterDirectly(category || "其他", normStr(name), normStr(thickness));
   }
-}
-
-function closeMasterModal() {
-  const modal = $('masterModal');
-  if (modal) modal.style.display = 'none';
 }
 
 /**
  * 儲存新主檔至雲端試算表
  */
-async function saveNewMasterToCloud() {
-  const name = $('newMasterName') ? normStr($('newMasterName').value) : '';
-  const category = $('newMasterCategory') ? $('newMasterCategory').value : '其他';
-  const thickness = $('newMasterThickness') ? normStr($('newMasterThickness').value) : '';
-  const size = $('newMasterSize') ? normStr($('newMasterSize').value) : '';
-  const safeStock = $('newMasterSafetyStock') ? Number($('newMasterSafetyStock').value) || 0 : 5;
-  const moq = $('newMasterMoq') ? Number($('newMasterMoq').value) || 0 : 1;
-
-  if (!name) {
-    alert('請輸入品名！');
-    return;
-  }
-
-  await saveMasterDirectly(category, name, thickness, size, safeStock, moq);
-  closeMasterModal();
-}
-
 async function saveMasterDirectly(category, name, thickness = '', size = '', safeStock = 5, moq = 1) {
   const payload = {
     action: "saveMaster",
-    category: category,
-    name: name,
-    thickness: thickness,
-    size: size,
-    safeStock: safeStock,
-    moq: moq
+    master: {
+      id: Date.now(),
+      category: category,
+      name: normStr(name),
+      thickness: normStr(thickness),
+      size: normStr(size),
+      safetyStock: safeStock,
+      moq: moq
+    }
   };
 
   try {
@@ -287,7 +255,7 @@ async function saveMasterDirectly(category, name, thickness = '', size = '', saf
     });
     let result = await response.json();
     if (result.status === "success") {
-      alert(`✅ 成功儲存物料主檔：「${name}」至雲端！`);
+      alert(`✅ 成功儲存物料主檔：「${normStr(name)}」至雲端！`);
       fetchInventoryData();
     } else {
       alert("儲存失敗：" + (result.message || "未知錯誤"));
@@ -301,15 +269,15 @@ async function saveMasterDirectly(category, name, thickness = '', size = '', saf
 }
 
 /**
- * 處理入庫 / 出庫交易
+ * 處理入庫 / 出庫交易（完美對應後端 addLog 指令）
  */
 async function handleTransaction(type) {
   const nameInput = $('txMaterialName') || $('form-item-name');
   const thickInput = $('txThickness');
   const qtyInput = $('txQty') || $('form-quantity');
 
-  const materialName = nameInput ? nameInput.value.trim() : '';
-  const thickness = thickInput ? thickInput.value.trim() : '';
+  const materialName = normStr(nameInput ? nameInput.value : '');
+  const thickness = normStr(thickInput ? thickInput.value : '');
   const qty = qtyInput ? Number(qtyInput.value) : 0;
 
   if (!materialName || !qty || qty <= 0) {
@@ -318,12 +286,15 @@ async function handleTransaction(type) {
   }
 
   const payload = {
-    action: "transaction",
-    type: type, // "IN" 或 "OUT"
-    itemName: materialName,
-    thickness: thickness,
-    quantity: qty,
-    timestamp: new Date().toISOString()
+    action: "addLog",
+    log: {
+      id: Date.now(),
+      type: type, // "IN" 或 "OUT"
+      materialName: materialName,
+      thickness: thickness || '0',
+      qty: qty,
+      time: new Date().toLocaleString('zh-TW', { hour12: false })
+    }
   };
 
   try {
@@ -339,6 +310,9 @@ async function handleTransaction(type) {
       alert(type === 'IN' ? `✅ 入庫成功：${materialName} +${qty}` : `✅ 出庫成功：${materialName} -${qty}`);
       
       if (qtyInput) qtyInput.value = '';
+      if (nameInput) nameInput.value = '';
+      if (thickInput) thickInput.value = '';
+      
       fetchInventoryData();
     } else {
       alert("交易失敗：" + (result.message || "未知錯誤"));
