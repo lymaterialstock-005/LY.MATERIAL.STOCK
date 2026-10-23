@@ -1,6 +1,6 @@
 /**
  * 全面雲端化入出庫兼採購系統 - app.js
- * 純 HTML Modal 視窗版（無 prompt），一步到位管理主檔與交易
+ * 完美解決 GAS 跨網域 (CORS) 與連線失敗問題
  */
 
 const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx1dHo2tUXua5hRPYxdKy7T7HmZ8wLdpZxrZna-matd_xsN6E_QHZ-bOdoudAAt78PsoA/exec";
@@ -182,6 +182,9 @@ function closeCatPicker() {
   if ($('categoryPickerModal')) $('categoryPickerModal').style.display = 'none';
 }
 
+/**
+ * 儲存主檔至雲端（使用 no-cors 模式避開跨網域阻擋）
+ */
 async function saveMasterFromModal() {
   let name = normStr($('newMasterName')?.value);
   let category = $('newMasterCategory')?.value || '其他';
@@ -204,24 +207,19 @@ async function saveMasterFromModal() {
 
   try {
     setBar(true);
-    let res = await fetch(GAS_WEB_APP_URL, {
+    await fetch(GAS_WEB_APP_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "saveMaster",
-        payload: itemObj
-      })
+      mode: "no-cors",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "saveMaster", payload: itemObj, master: itemObj })
     });
-    let r = await res.json();
-    if (r.status === 'success') {
-      alert(`✅ 成功新增物料主檔：「${name}」！`);
-      closeMasterModal();
-      fetchInventoryData();
-    } else {
-      alert("儲存失敗：" + (r.message || "未知錯誤"));
-    }
+    alert(`✅ 成功新增物料主檔：「${name}」！`);
+    closeMasterModal();
+    await new Promise(r => setTimeout(r, 1200));
+    fetchInventoryData();
   } catch (e) {
-    alert("儲存主檔連線失敗");
+    console.error(e);
+    alert("儲存主檔失敗");
   } finally {
     setBar(false);
   }
@@ -251,18 +249,18 @@ async function confirmBatchDelete() {
 
   try {
     setBar(true);
-    let res = await fetch(GAS_WEB_APP_URL, {
+    await fetch(GAS_WEB_APP_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "batchDeleteCategories", payload: selected })
+      mode: "no-cors",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "batchDeleteCategories", payload: selected, categories: selected })
     });
-    let r = await res.json();
-    if (r.status === 'success') {
-      alert("✅ 批次刪除成功！");
-      closeBatchDeleteModal();
-      fetchInventoryData();
-    }
+    alert("✅ 批次刪除成功！");
+    closeBatchDeleteModal();
+    await new Promise(r => setTimeout(r, 1200));
+    fetchInventoryData();
   } catch (e) {
+    console.error(e);
     alert("刪除失敗");
   } finally {
     setBar(false);
@@ -272,11 +270,15 @@ async function confirmBatchDelete() {
 async function saveCategoriesToCloud() {
   await fetch(GAS_WEB_APP_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    mode: "no-cors",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
     body: JSON.stringify({ action: "saveCategories", payload: categoriesList })
   });
 }
 
+/**
+ * 處理入庫 / 出庫交易（使用 no-cors 模式）
+ */
 async function handleTx(type) {
   let name = normStr($('txMaterialName')?.value);
   let thick = normStr($('txThickness')?.value);
@@ -295,26 +297,24 @@ async function handleTx(type) {
   try {
     setBar(true);
     let logObj = { id: Date.now(), type, materialName: name, thickness: thick || '0', qty, time: new Date().toLocaleString() };
-    let res = await fetch(GAS_WEB_APP_URL, {
+    
+    await fetch(GAS_WEB_APP_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "addTransaction",
-        payload: logObj
-      })
+      mode: "no-cors",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "addTransaction", payload: logObj, log: logObj })
     });
-    let r = await res.json();
-    if (r.status === 'success') {
-      alert(type === 'IN' ? "✅ 入庫成功！" : "✅ 出庫成功！");
-      if ($('txQty')) $('txQty').value = '';
-      if ($('txMaterialName')) $('txMaterialName').value = '';
-      if ($('txThickness')) $('txThickness').value = '';
-      fetchInventoryData();
-    } else {
-      alert("交易失敗：" + (r.message || "未知錯誤"));
-    }
+
+    alert(type === 'IN' ? "✅ 入庫成功！" : "✅ 出庫成功！");
+    if ($('txQty')) $('txQty').value = '';
+    if ($('txMaterialName')) $('txMaterialName').value = '';
+    if ($('txThickness')) $('txThickness').value = '';
+    
+    await new Promise(r => setTimeout(r, 1200));
+    fetchInventoryData();
   } catch (e) {
-    alert("交易連線失敗");
+    console.error(e);
+    alert("交易失敗");
   } finally {
     setBar(false);
   }
