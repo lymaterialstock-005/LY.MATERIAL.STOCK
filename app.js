@@ -1,6 +1,5 @@
 /**
  * 全面雲端化入出庫兼採購系統 - app.js
- * 完整對應新版後端 API、規格欄位與正規化比對
  */
 
 const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx1dHo2tUXua5hRPYxdKy7T7HmZ8wLdpZxrZna-matd_xsN6E_QHZ-bOdoudAAt78PsoA/exec";
