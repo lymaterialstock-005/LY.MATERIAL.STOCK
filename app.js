@@ -1,5 +1,6 @@
 /**
- * 全面雲端化入出庫兼採購系統 - app.js
+ * 雲端化入出庫兼採購系統 - app.js
+ * 完整對應 Google Apps Script 後端 API 與標準化格式
  */
 
 const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx1dHo2tUXua5hRPYxdKy7T7HmZ8wLdpZxrZna-matd_xsN6E_QHZ-bOdoudAAt78PsoA/exec";
