@@ -1,13 +1,21 @@
 /**
  * 全面雲端化入出庫兼採購系統 - app.js
- * 完整還原所有 Modal 互動、尺寸、安全庫存、MOQ 與雲端同步
+ * 完整整合 HTML Modal 視窗（品名、分類、厚度、尺寸、安全庫存、MOQ 一步到位）
  */
 
 const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx1dHo2tUXua5hRPYxdKy7T7HmZ8wLdpZxrZna-matd_xsN6E_QHZ-bOdoudAAt78PsoA/exec";
 
-let inventoryData = [], categoriesList = [], currentCat = '全部', isCollapsed = false, editingMasterId = null;
+let inventoryData = [], categoriesList = [
+  '德昱興', '華立', '樂榮', '羅傑斯', '昶瑞', '倍速', '好加', '冠好', 
+  'PORON', '泡棉', '3M', '國貿', '晉昌', '精強', '靖昌', '頂誌', 
+  '慧迅', '金開', '伍豐', '家巧', '樂高', '寶燕', '其他'
+], currentCat = '全部', isCollapsed = false, editingMasterId = null;
+
 const $ = id => document.getElementById(id);
 
+/**
+ * 字串正規化：自動轉大寫，小數點前自動補零 (如 .25 變 0.25)
+ */
 const normStr = s => s ? s.toString().trim().toUpperCase().replace(/(^|[^0-9])\.([0-9]+)/g, '$10.$2') : '';
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -22,7 +30,7 @@ async function fetchInventoryData() {
     let data = await res.json();
     if (data) {
       if (data.masters) inventoryData = data.masters;
-      if (data.categories) categoriesList = data.categories;
+      if (data.categories && data.categories.length > 0) categoriesList = data.categories;
       renderChips();
       renderSummary();
     }
@@ -73,6 +81,7 @@ function renderSummary() {
 function setupEvents() {
   $('search-input')?.addEventListener('input', renderSummary);
   
+  // 分類標籤點擊篩選
   $('categoryChips')?.addEventListener('click', e => {
     if (e.target.classList.contains('chip')) {
       currentCat = e.target.dataset.cat;
@@ -84,13 +93,14 @@ function setupEvents() {
     }
   });
 
+  // 收起 / 展開明細
   $('btnToggleSummary')?.addEventListener('click', () => {
     isCollapsed = !isCollapsed;
     $('inventoryStockSummary').style.display = isCollapsed ? 'none' : 'block';
     $('btnToggleSummary').innerText = isCollapsed ? '展開 ▼' : '收起 ▲';
   });
 
-  // 快捷新增主檔按鈕 (+)
+  // 點擊「＋」按鈕開啟完整主檔 Modal
   $('btnAddMasterQuick')?.addEventListener('click', () => {
     openMasterModal(normStr($('txMaterialName')?.value), normStr($('txThickness')?.value));
   });
@@ -101,7 +111,7 @@ function setupEvents() {
     if (e.target.id === 'masterModal') closeMasterModal();
   });
 
-  // 選擇分類按鈕
+  // 選擇分類按鈕 (開啟分類選擇器)
   $('btnOpenCategoryPicker')?.addEventListener('click', openCatPicker);
   $('btnCloseCategoryPicker')?.addEventListener('click', closeCatPicker);
   $('categoryPickerModal')?.addEventListener('click', e => {
@@ -117,12 +127,12 @@ function setupEvents() {
         categoriesList.push(trimmed);
         saveCategoriesToCloud();
       }
-      $('newMasterCategory').value = trimmed;
+      if ($('newMasterCategory')) $('newMasterCategory').value = trimmed;
       closeCatPicker();
     }
   });
 
-  // 儲存新主檔
+  // 儲存主檔按鈕
   $('btnSaveNewMaster')?.addEventListener('click', saveMasterFromModal);
 
   // 批次刪除分類
@@ -133,7 +143,7 @@ function setupEvents() {
   });
   $('btnConfirmBatchDelete')?.addEventListener('click', confirmBatchDelete);
 
-  // 點擊卡片帶入交易表單
+  // 點擊庫存卡片直接帶入交易表單
   document.addEventListener('click', e => {
     let card = e.target.closest('.stock-card-item');
     if (card) {
@@ -143,19 +153,24 @@ function setupEvents() {
     }
   });
 
+  // 入庫 / 出庫按鈕
   $('btnIn')?.addEventListener('click', () => handleTx('IN'));
   $('btnOut')?.addEventListener('click', () => handleTx('OUT'));
 }
 
+/**
+ * 開啟完整的 HTML 主檔管理視窗 (Modal)
+ */
 function openMasterModal(name = '', thick = '') {
   editingMasterId = Date.now();
-  if ($('newMasterName')) $('newMasterName').value = name;
+  if ($('newMasterName')) $('newMasterName').value = normStr(name);
   if ($('newMasterCategory')) $('newMasterCategory').value = categoriesList[0] || '其他';
-  if ($('newMasterThickness')) $('newMasterThickness').value = thick;
+  if ($('newMasterThickness')) $('newMasterThickness').value = normStr(thick);
   if ($('newMasterSize')) $('newMasterSize').value = '';
   if ($('newMasterSafetyStock')) $('newMasterSafetyStock').value = '0';
   if ($('newMasterMoq')) $('newMasterMoq').value = '0';
   if ($('masterModal')) $('masterModal').style.display = 'flex';
+  setTimeout(() => $('newMasterName')?.focus(), 100);
 }
 
 function closeMasterModal() {
@@ -165,11 +180,11 @@ function closeMasterModal() {
 function openCatPicker() {
   const grid = $('categoryPickerGrid');
   if (!grid) return;
-  grid.innerHTML = categoriesList.map(c => `<button type="button" class="cat-picker-btn" data-cat="${c}" style="padding:10px;background:#333;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;">${c}</button>`).join('');
+  grid.innerHTML = categoriesList.map(c => `<button type="button" class="cat-picker-btn" data-cat="${c}" style="padding:10px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;">${c}</button>`).join('');
   
   grid.querySelectorAll('.cat-picker-btn').forEach(btn => {
     btn.onclick = () => {
-      $('newMasterCategory').value = btn.dataset.cat;
+      if ($('newMasterCategory')) $('newMasterCategory').value = btn.dataset.cat;
       closeCatPicker();
     };
   });
@@ -180,6 +195,9 @@ function closeCatPicker() {
   if ($('categoryPickerModal')) $('categoryPickerModal').style.display = 'none';
 }
 
+/**
+ * 從 Modal 儲存物料主檔至雲端 (相容 payload 與 master 雙格式)
+ */
 async function saveMasterFromModal() {
   let name = normStr($('newMasterName')?.value);
   let category = $('newMasterCategory')?.value || '其他';
@@ -190,6 +208,16 @@ async function saveMasterFromModal() {
 
   if (!name) return alert('請輸入品名！');
 
+  const itemObj = {
+    id: editingMasterId || Date.now(),
+    category: category,
+    name: name,
+    thickness: thickness,
+    size: size,
+    safetyStock: safetyStock,
+    moq: moq
+  };
+
   try {
     setBar(true);
     let res = await fetch(GAS_WEB_APP_URL, {
@@ -197,7 +225,8 @@ async function saveMasterFromModal() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         action: "saveMaster",
-        payload: { id: editingMasterId, category, name, thickness, size, safetyStock, moq }
+        master: itemObj,
+        payload: itemObj
       })
     });
     let r = await res.json();
@@ -205,9 +234,11 @@ async function saveMasterFromModal() {
       alert(`✅ 成功新增物料主檔：「${name}」！`);
       closeMasterModal();
       fetchInventoryData();
+    } else {
+      alert("儲存失敗：" + (r.message || "未知錯誤"));
     }
   } catch (e) {
-    alert("儲存主檔失敗");
+    alert("儲存主檔連線失敗");
   } finally {
     setBar(false);
   }
@@ -240,7 +271,7 @@ async function confirmBatchDelete() {
     let res = await fetch(GAS_WEB_APP_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "batchDeleteCategories", payload: selected })
+      body: JSON.stringify({ action: "batchDeleteCategories", payload: selected, categories: selected })
     });
     let r = await res.json();
     if (r.status === 'success') {
@@ -263,6 +294,9 @@ async function saveCategoriesToCloud() {
   });
 }
 
+/**
+ * 處理入庫 / 出庫交易 (查無主檔時自動開啟完整主檔 Modal)
+ */
 async function handleTx(type) {
   let name = normStr($('txMaterialName')?.value);
   let thick = normStr($('txThickness')?.value);
@@ -281,12 +315,14 @@ async function handleTx(type) {
 
   try {
     setBar(true);
+    let logObj = { id: Date.now(), type, materialName: name, thickness: thick || '0', qty, time: new Date().toLocaleString() };
     let res = await fetch(GAS_WEB_APP_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         action: "addTransaction",
-        payload: { id: Date.now(), type, materialName: name, thickness: thick || '0', qty, time: new Date().toLocaleString() }
+        payload: logObj,
+        log: logObj
       })
     });
     let r = await res.json();
@@ -296,9 +332,11 @@ async function handleTx(type) {
       if ($('txMaterialName')) $('txMaterialName').value = '';
       if ($('txThickness')) $('txThickness').value = '';
       fetchInventoryData();
+    } else {
+      alert("交易失敗：" + (r.message || "未知錯誤"));
     }
   } catch (e) {
-    alert("交易失敗");
+    alert("交易連線失敗");
   } finally {
     setBar(false);
   }
