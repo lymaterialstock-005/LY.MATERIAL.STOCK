@@ -1,45 +1,25 @@
-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #121212; margin: 0; padding: 0 0 60px; color: #e0e0e0; }
-#status-bar { background: #1e3a8a; color: #93c5fd; padding: 8px 12px; font-size: 12px; text-align: center; font-weight: bold; position: sticky; top: 0; z-index: 100; }
-h2 { font-size: 15px; color: #fff; margin: 16px 12px 8px; display: flex; align-items: center; justify-content: space-between; }
-.card { background: #1e1e1e; margin: 0 12px 12px; padding: 12px; border-radius: 8px; border: 1px solid #333; }
-.hint-text { font-size: 11px; color: #888; margin-top: 4px; display: block; }
-
-.form-group { margin-bottom: 6px; }
-label { display: block; font-size: 11px; color: #aaa; margin-bottom: 2px; font-weight: bold; }
-input, select { width: 100%; box-sizing: border-box; padding: 8px 10px; background: #2c2c2c; border: 1px solid #444; border-radius: 6px; color: #fff; font-size: 13px; }
-input:focus, select:focus { outline: none; border-color: #3b82f6; }
-
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+body { background-color: #121212; color: #e0e0e0; padding: 12px; max-width: 600px; margin: 0 auto; }
+#status-bar { padding: 6px 12px; text-align: center; font-size: 13px; font-weight: bold; border-radius: 4px; margin-bottom: 10px; color: #fff; background: #166534; }
+h2 { font-size: 16px; margin: 16px 0 8px 0; display: flex; justify-content: space-between; align-items: center; color: #fff; border-bottom: 1px solid #333; padding-bottom: 6px; }
+.btn-text-link { background: none; border: none; color: #60a5fa; cursor: pointer; font-size: 13px; }
+.card { background: #1e1e1e; border-radius: 8px; padding: 12px; margin-bottom: 12px; border: 1px solid #333; }
+.form-group { margin-bottom: 10px; }
+.form-group label { display: block; font-size: 12px; color: #aaa; margin-bottom: 4px; }
+.form-row { display: flex; gap: 8px; }
+.form-row .form-group { flex: 1; }
+input[type="text"], input[type="number"] { width: 100%; padding: 10px; background: #2a2a2a; border: 1px solid #444; color: #fff; border-radius: 6px; font-size: 15px; }
 .search-container { display: flex; gap: 8px; align-items: center; }
-.btn-icon { background: #3b82f6; color: #fff; border: none; border-radius: 6px; padding: 8px 14px; font-weight: bold; font-size: 16px; cursor: pointer; white-space: nowrap; }
-.btn-text-link { background: none; border: none; color: #60a5fa; font-size: 13px; cursor: pointer; font-weight: normal; }
-.form-row, .btn-group { display: flex; gap: 8px; }
-.form-row .form-group, .btn { flex: 1; }
-.btn-group { margin-top: 8px; }
-.btn { padding: 10px; border: none; border-radius: 6px; font-weight: bold; font-size: 14px; cursor: pointer; color: #fff; }
-.btn-in { background-color: #2e7d32; }
-.btn-out { background-color: #c62828; }
-
-.modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 200; justify-content: center; align-items: center; }
-.modal-content { background: #1e1e1e; width: 94%; max-height: 72vh; border-radius: 8px; border: 1px solid #444; padding: 12px; overflow-y: auto; box-sizing: border-box; }
-.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px solid #333; padding-bottom: 6px; }
-.modal-title { font-size: 15px; font-weight: bold; color: #fff; }
-.close-btn { background: none; border: none; color: #aaa; font-size: 20px; font-weight: bold; cursor: pointer; }
-
-/* 快選分類標籤橫向捲動列 */
-.chips-container { display: flex; gap: 6px; overflow-x: auto; padding: 0 12px 10px; -webkit-overflow-scrolling: touch; }
-.chips-container::-webkit-scrollbar { display: none; }
-.chip { background: #2c2c2c; color: #aaa; border: 1px solid #444; padding: 5px 12px; border-radius: 16px; font-size: 12px; white-space: nowrap; cursor: pointer; flex-shrink: 0; }
-.chip.active { background: #2563eb; color: #fff; border-color: #3b82f6; font-weight: bold; }
-
-/* 分類快選彈窗按鈕網格樣式 */
-.cat-picker-btn { background: #2c2c2c; color: #fff; border: 1px solid #444; padding: 10px; border-radius: 6px; font-size: 13px; text-align: center; cursor: pointer; font-weight: 500; }
-.cat-picker-btn:active { background: #3b82f6; border-color: #60a5fa; }
-
-/* 複選清單項目樣式 */
-.cat-checkbox-item { background: #2c2c2c; padding: 8px 10px; border-radius: 6px; display: flex; align-items: center; gap: 8px; font-size: 13px; color: #fff; cursor: pointer; }
-.cat-checkbox-item input { width: 16px; height: 16px; accent-color: #c62828; cursor: pointer; }
-
-.stock-card-item { cursor: pointer; transition: background 0.15s ease, transform 0.1s ease; }
-.stock-card-item:active { background: #383838 !important; transform: scale(0.98); }
-.stock-warn { border-left: 4px solid #ef4444 !important; }
-.stock-ok { border-left: 4px solid #3b82f6 !important; }
+.btn-group { display: flex; gap: 8px; margin-top: 12px; }
+.btn { flex: 1; padding: 12px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; color: #fff; }
+.btn-in { background-color: #166534; }
+.btn-out { background-color: #991b1b; }
+.chips-container { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 10px; white-space: nowrap; }
+.chip { background: #2a2a2a; color: #bbb; border: 1px solid #444; padding: 6px 12px; border-radius: 16px; font-size: 13px; cursor: pointer; }
+.chip.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+.stock-card-item { background: #1e1e1e; border-left: 4px solid #10b981; transition: transform 0.1s; }
+.stock-card-item.k-warn { border-left-color: #ef4444; }
+.modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center; padding: 16px; }
+.modal-content { background: #1e1e1e; width: 100%; max-width: 420px; border-radius: 10px; padding: 16px; border: 1px solid #444; max-height: 90vh; overflow-y: auto; }
+.cat-del-label { display: flex; align-items: center; gap: 10px; color: #fff; font-size: 14px; background: #2a2a2a; padding: 8px 10px; border-radius: 6px; cursor: pointer; }
+.cat-del-label input[type="checkbox"] { width: 18px; height: 18px; accent-color: #dc2626; cursor: pointer; }
