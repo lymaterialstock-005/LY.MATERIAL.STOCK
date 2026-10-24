@@ -3,18 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>物料庫存</title>
-
-    <!-- 載入外部 CSS -->
+    <title>物料庫存明細</title>
     <link rel="stylesheet" href="style.css">
-
-    <!-- 手機版 Console 除錯工具 (Eruda) -->
     <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
     <script>eruda.init();</script>
 </head>
 <body>
 
-    <div id="status-bar">⏳ 正在連線至雲端資料庫...</div>
+    <div id="status-bar">⏳ 物料庫存系統已就緒</div>
 
     <h2>
         <span>📊 庫存明細</span>
@@ -24,19 +20,17 @@
         </div>
     </h2>
 
-    <!-- 快選物料分類標籤列 -->
     <div id="categoryChips" class="chips-container"></div>
-
-    <!-- 庫存明細清單區塊 -->
     <div id="inventoryStockSummary" style="padding: 0 12px; margin-bottom: 16px;"></div>
 
     <h2>📝 物料入出庫異動</h2>
     <div class="card" id="txCard">
         <div class="form-group">
             <label>1. 物料名稱</label>
-            <div class="search-container">
-                <input type="text" id="txMaterialName" placeholder="點擊上方快選或明細可直接帶入品名" style="flex: 1;">
-                <button type="button" id="btnAddMasterQuick" class="btn-icon" title="新增物料主檔" style="padding: 8px 14px; font-size: 18px;">＋</button>
+            <div class="search-container" style="display: flex; gap: 8px;">
+                <input type="text" id="txMaterialName" list="materialListOptions" placeholder="點擊上方快選或輸入搜尋品名" style="flex: 1;">
+                <datalist id="materialListOptions"></datalist>
+                <button type="button" id="btnAddMasterQuick" class="btn-icon" title="新增物料主檔" style="padding: 8px 14px; font-size: 18px; background: #2563eb; color: white; border: none; border-radius: 6px;">＋</button>
             </div>
         </div>
         <div class="form-row">
@@ -55,88 +49,87 @@
         </div>
     </div>
 
-    <!-- 物料主檔 Modal -->
+    <!-- 物料主檔管理 Modal -->
     <div id="masterModal" class="modal">
         <div class="modal-content" id="masterModalContent">
-            <div class="modal-header">
-                <span class="modal-title" id="masterModalHeaderTitle">📦 物料主檔管理</span>
-                <button type="button" class="close-btn" id="btnCloseMaster">&times;</button>
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span class="modal-title" id="masterModalHeaderTitle" style="font-size: 15px; font-weight: bold;">📦 物料主檔管理</span>
+                    <!-- 1. 新增分類按鈕放置於主檔標題旁 -->
+                    <button type="button" id="btnAddCustomCategory" style="background: #166534; color: white; border: none; padding: 2px 8px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 14px;" title="新增分類">＋</button>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <button type="button" id="btnCancelEditMaster" style="display: none; background: #b91c1c; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; cursor: pointer;">取消編輯</button>
+                    <button type="button" class="close-btn" id="btnCloseMaster" style="background: none; border: none; font-size: 20px; color: #aaa; cursor: pointer;">&times;</button>
+                </div>
             </div>
 
-            <!-- 主檔編輯與新增表單區塊 -->
+            <div id="editingBadge" style="display: none; background: #1e3a8a; padding: 6px 10px; border-radius: 6px; font-size: 12px; margin-bottom: 10px; color: #93c5fd;"></div>
+
             <div id="masterFormSection">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                    <span id="masterFormTitle" style="font-size: 13px; font-weight: bold; color: #3b82f6;">✏️ 新增物料主檔</span>
-                    <button type="button" id="btnCancelEditMaster" class="btn-text-link" style="display: none;">⬅️ 返回</button>
-                </div>
-
-                <div id="editingBadge" style="display: none; background: #2c2c2c; padding: 6px 10px; border-radius: 6px; border-left: 4px solid #f59e0b; margin-bottom: 8px; font-size: 11px; color: #fbbf24;"></div>
-
-                <!-- 物料名稱 -->
-                <div class="form-group">
-                    <label>物料名稱</label>
-                    <input type="text" id="newMasterName" placeholder="物料名稱 (如: 1870A)">
-                </div>
-
-                <!-- 物料分類 -->
-                <div class="form-group">
-                    <label>物料分類</label>
-                    <div style="display: flex; gap: 8px;">
-                        <input type="text" id="newMasterCategory" readonly placeholder="請選擇分類" style="flex: 1; background: #2c2c2c; cursor: pointer;" value="其他">
-                        <button type="button" id="btnOpenCategoryPicker" style="background: #2563eb; color: white; border: none; padding: 0 14px; border-radius: 6px; font-weight: bold; cursor: pointer; white-space: nowrap;">選擇分類</button>
+                <!-- 2. 物料分類與物料名稱對調（分類在上，名稱在下） -->
+                <div class="form-group" style="margin-bottom: 10px;">
+                    <label style="font-size: 13px; color: #ccc;">物料分類</label>
+                    <div style="display: flex; gap: 6px;">
+                        <input type="text" id="newMasterCategory" list="categoryListOptions" placeholder="選擇或輸入分類" style="flex: 1; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #222; color: #fff;">
+                        <datalist id="categoryListOptions"></datalist>
+                        <button type="button" id="btnOpenCategoryPicker" style="background: #374151; color: white; border: none; padding: 0 10px; border-radius: 6px; font-size: 12px; cursor: pointer;">選擇</button>
                     </div>
                 </div>
 
-                <div class="form-row">
-                    <div class="form-group">
-                        <input type="text" id="newMasterThickness" placeholder="厚度 (如: 0.125)">
+                <div class="form-group" style="margin-bottom: 10px;">
+                    <label style="font-size: 13px; color: #ccc;">物料名稱</label>
+                    <input type="text" id="newMasterName" placeholder="物料名稱 (如: 1870A)" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #222; color: #fff;">
+                </div>
+
+                <div class="form-row" style="display: flex; gap: 8px; margin-bottom: 10px;">
+                    <div class="form-group" style="flex: 1;">
+                        <input type="text" id="newMasterThickness" placeholder="厚度 (如: 0.125)" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #222; color: #fff;">
                     </div>
-                    <div class="form-group">
-                        <input type="text" id="newMasterSize" placeholder="尺寸 (如: 930X680M)">
+                    <div class="form-group" style="flex: 1;">
+                        <input type="text" id="newMasterSize" placeholder="尺寸 (如: 930X680M)" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #222; color: #fff;">
                     </div>
                 </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>安全庫存</label>
-                        <input type="number" id="newMasterSafetyStock" placeholder="0">
+
+                <div class="form-row" style="display: flex; gap: 8px; margin-bottom: 14px;">
+                    <div class="form-group" style="flex: 1;">
+                        <label style="font-size: 13px; color: #ccc;">安全庫存</label>
+                        <input type="number" id="newMasterSafetyStock" placeholder="" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #222; color: #fff;">
                     </div>
-                    <div class="form-group">
-                        <label>MOQ (最低訂購量)</label>
-                        <input type="number" id="newMasterMoq" placeholder="0">
+                    <div class="form-group" style="flex: 1;">
+                        <label style="font-size: 13px; color: #ccc;">MOQ (最低訂購量)</label>
+                        <input type="number" id="newMasterMoq" placeholder="" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #222; color: #fff;">
                     </div>
                 </div>
-                <button type="button" id="btnSaveNewMaster" style="width: 100%; padding: 10px; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 4px; font-size: 14px;">儲存至物料主檔</button>
+                <button type="button" id="btnSaveNewMaster" style="width: 100%; padding: 10px; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 14px;">儲存至物料主檔</button>
             </div>
         </div>
     </div>
 
-    <!-- 物料分類快選彈窗 (Modal Picker) -->
+    <!-- 分類快選彈窗 Modal -->
     <div id="categoryPickerModal" class="modal">
-        <div class="modal-content" style="max-width: 400px;">
-            <div class="modal-header">
-                <span class="modal-title">📂 選擇物料分類</span>
-                <button type="button" class="close-btn" id="btnCloseCategoryPicker">&times;</button>
+        <div class="modal-content" style="max-width: 350px; background: #1e1e1e; padding: 16px; border-radius: 8px;">
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <span class="modal-title" style="font-size: 15px; font-weight: bold;">🏷️ 選擇物料分類</span>
+                <button type="button" class="close-btn" id="btnCloseCategoryPicker" style="background: none; border: none; font-size: 20px; color: #aaa; cursor: pointer;">&times;</button>
             </div>
-            <div style="font-size: 11px; color: #888; margin-bottom: 8px;">請點擊選擇分類，或點下方按鈕新增分類：</div>
-            <div id="categoryPickerGrid" style="max-height: 40vh; overflow-y: auto; display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 12px;"></div>
-            <button type="button" id="btnAddCustomCategory" style="width: 100%; padding: 10px; background: #166534; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 14px;">➕ 新增自定義分類</button>
+            <div id="categoryPickerGrid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-height: 40vh; overflow-y: auto;"></div>
         </div>
     </div>
 
-    <!-- 分類複選刪除 Modal -->
+    <!-- 分類批次刪除 Modal -->
     <div id="catBatchModal" class="modal">
-        <div class="modal-content" style="max-width: 400px;">
-            <div class="modal-header">
-                <span class="modal-title">🗑️ 批次勾選要刪除的分類</span>
-                <button type="button" class="close-btn" id="btnCloseCatBatchModal">&times;</button>
+        <div class="modal-content" style="max-width: 400px; background: #1e1e1e; padding: 16px; border-radius: 8px;">
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <span class="modal-title" style="font-size: 15px; font-weight: bold;">🗑️ 批次勾選要刪除的分類</span>
+                <button type="button" class="close-btn" id="btnCloseCatBatchModal" style="background: none; border: none; font-size: 20px; color: #aaa; cursor: pointer;">&times;</button>
             </div>
-            <div style="font-size: 11px; color: #888; margin-bottom: 8px;">勾選要刪除的分類（將連同該分類下所有物料主檔一併刪除）：</div>
+            <div style="font-size: 11px; color: #888; margin-bottom: 8px;">勾選要刪除的分類（該分類下物料將自動移至「其他」）：</div>
             <div id="catCheckboxList" style="max-height: 40vh; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px;"></div>
             <button type="button" id="btnConfirmBatchDelete" style="width: 100%; padding: 10px; background: #c62828; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 14px;">確認刪除勾選的分類</button>
         </div>
     </div>
 
-    <!-- 載入外部 JavaScript -->
     <script src="app.js"></script>
 </body>
 </html>
