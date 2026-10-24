@@ -35,7 +35,7 @@ async function fetchInventoryData() {
 
       renderChips();
       renderSummary();
-      setupDatalistTrigger();
+      setupDaturlistTrigger();
     }
   } catch (e) {
     console.error("載入失敗：", e);
@@ -44,8 +44,8 @@ async function fetchInventoryData() {
   }
 }
 
-// 💡 智慧快選控制：手動輸入「至少 1 個字」後才動態塞入選項，避免一開始就彈出干擾
-function setupDatalistTrigger() {
+// 💡 智慧快選控制：手動輸入「至少 1 個字」後才動態載入選項
+function setupDaturlistTrigger() {
   const input = $('txMaterialName');
   const datalist = $('materialListOptions');
   if (!input || !datalist) return;
@@ -58,7 +58,7 @@ function setupDatalistTrigger() {
         .map(i => `<option value="${i.name}">`)
         .join('');
     } else {
-      datalist.innerHTML = ''; // 未滿 1 個字時保持空白，不彈出快選
+      datalist.innerHTML = '';
     }
   });
 }
@@ -79,8 +79,6 @@ function renderSummary() {
   } else if (currentCat !== '全部') {
     list = inventoryData.filter(i => i.category === currentCat);
   }
-  const kw = normStr($('search-input')?.value);
-  if (kw) list = list.filter(i => normStr(i.name).includes(kw));
 
   if (!list.length) {
     div.innerHTML = `<div style="padding:20px;text-align:center;color:#888;">目前無物料資料</div>`;
@@ -104,8 +102,6 @@ function renderSummary() {
 }
 
 function setupEvents() {
-  $('search-input')?.addEventListener('input', renderSummary);
-  
   $('categoryChips')?.addEventListener('click', e => {
     if (e.target.classList.contains('chip')) {
       currentCat = e.target.dataset.cat;
