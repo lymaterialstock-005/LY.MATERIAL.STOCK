@@ -345,7 +345,6 @@ async function handleTx(type) {
 
     if (r.status === 'success') {
       alert(type === 'IN' ? "✅ 入庫成功！" : "✅ 出庫成功！");
-      if ($('txQty')) $('txQty': '') // 修正欄位清空
       if ($('txQty')) $('txQty').value = '';
       if ($('txMaterialName')) $('txMaterialName').value = '';
       if ($('txThickness')) $('txThickness').value = '';
