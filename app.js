@@ -4,7 +4,6 @@
 
 const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbjYhpL81dASZ0VQx6-OfidxmEDkfNkE42Nh_mTGYaurzhzPHLngzgWLDLnA-yjxA/exec';
 
-
 let inventoryData = [], categoriesList = [
   '德昱興', '華立', '樂榮', '羅傑斯', '昶瑞', '倍速', '好加', '冠好', 
   'PORON', '泡棉', '3M', '國貿', '晉昌', '精強', '靖昌', '頂誌', 
@@ -19,19 +18,15 @@ document.addEventListener("DOMContentLoaded", () => {
   setupEvents();
 });
 
-async function fetchInventoryData() {
-  try {
-    setBar(true);
-    let res = await fetch(GAS_WEB_APP_URL + "?action=getInventory&t=" + Date.now(), { mode: 'cors' });
-    let text = await res.text();
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch (parseErr) {
-      console.warn("API 回傳非純 JSON，嘗試解析文字...", text);
-      data = { status: 'success', inventory: [], categories: categoriesList };
-    }
-
+// 💡 透過 JSONP 載入資料，完美繞過 CORS 攔截
+function fetchInventoryData() {
+  setBar(true);
+  const callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
+  
+  window[callbackName] = function(data) {
+    delete window[callbackName];
+    document.getElementById('jsonp-script')?.remove();
+    
     if (data && data.status === 'success') {
       inventoryData = data.inventory || [];
       if (data.categories && data.categories.length > 0) {
@@ -44,15 +39,22 @@ async function fetchInventoryData() {
         }
       });
     }
-  } catch (e) {
-    console.warn("網路連線或 CORS 攔截，已啟動本地安全檢視模式：", e);
-  } finally {
-    // 💡 無論 API 是否成功，強制執行渲染，確保分類標籤與庫存明細絕對會顯示出來！
     renderChips();
     renderSummary();
     updateDatalists();
     setBar(false);
-  }
+  };
+
+  const script = document.createElement('script');
+  script.id = 'jsonp-script';
+  script.src = `${GAS_WEB_APP_URL}?action=getInventory&callback=${callbackName}&t=${Date.now()}`;
+  script.onerror = function() {
+    setBar(false);
+    renderChips();
+    renderSummary();
+    console.error("JSONP 載入失敗");
+  };
+  document.body.appendChild(script);
 }
 
 function updateDatalists() {
@@ -85,7 +87,7 @@ function renderSummary() {
   }
 
   if (!list || list.length === 0) {
-    div.innerHTML = `<div style="padding:20px;text-align:center;color:#888;">目前無物料資料或正在同步雲端資料</div>`;
+    div.innerHTML = `<div style="padding:20px;text-align:center;color:#888;">目前無物料資料，請點擊上方 ＋ 新增主檔或進行入庫</div>`;
     return;
   }
 
