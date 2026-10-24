@@ -28,7 +28,8 @@
         <div class="form-group">
             <label>1. 物料名稱</label>
             <div class="search-container" style="display: flex; gap: 8px;">
-                <input type="text" id="txMaterialName" list="materialListOptions" placeholder="點擊上方快選或輸入搜尋品名" style="flex: 1;">
+                <!-- 結合 datalist，但透過 JS 控制必須輸入滿 1 個字以上才載入選項，避免預設彈出干擾 -->
+                <input type="text" id="txMaterialName" list="materialListOptions" placeholder="請輸入至少一個字以觸發快選" style="flex: 1;">
                 <datalist id="materialListOptions"></datalist>
                 <button type="button" id="btnAddMasterQuick" class="btn-icon" title="新增物料主檔" style="padding: 8px 14px; font-size: 18px; background: #2563eb; color: white; border: none; border-radius: 6px;">＋</button>
             </div>
@@ -55,7 +56,6 @@
             <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span class="modal-title" id="masterModalHeaderTitle" style="font-size: 15px; font-weight: bold;">📦 物料主檔管理</span>
-                    <!-- 1. 新增分類按鈕放置於主檔標題旁 -->
                     <button type="button" id="btnAddCustomCategory" style="background: #166534; color: white; border: none; padding: 2px 8px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 14px;" title="新增分類">＋</button>
                 </div>
                 <div style="display: flex; align-items: center; gap: 8px;">
@@ -64,15 +64,11 @@
                 </div>
             </div>
 
-            <div id="editingBadge" style="display: none; background: #1e3a8a; padding: 6px 10px; border-radius: 6px; font-size: 12px; margin-bottom: 10px; color: #93c5fd;"></div>
-
             <div id="masterFormSection">
-                <!-- 2. 物料分類與物料名稱對調（分類在上，名稱在下） -->
                 <div class="form-group" style="margin-bottom: 10px;">
                     <label style="font-size: 13px; color: #ccc;">物料分類</label>
                     <div style="display: flex; gap: 6px;">
-                        <input type="text" id="newMasterCategory" list="categoryListOptions" placeholder="選擇或輸入分類" style="flex: 1; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #222; color: #fff;">
-                        <datalist id="categoryListOptions"></datalist>
+                        <input type="text" id="newMasterCategory" placeholder="選擇或輸入分類" style="flex: 1; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #222; color: #fff;">
                         <button type="button" id="btnOpenCategoryPicker" style="background: #374151; color: white; border: none; padding: 0 10px; border-radius: 6px; font-size: 12px; cursor: pointer;">選擇</button>
                     </div>
                 </div>
