@@ -1,273 +1,202 @@
 /**
- * 全面雲端化入出庫兼採購系統 - app.js
- * 已更新最新 GAS Webhook URL 與試算表對接
+ * 全面端化入出庫採購系統前端程式碼
+ * 已更新最新 GAS Webhook 網址
  */
+const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwqFoRX-lMt38ho00ACFIF6AsjSOgkT8LTKVed0kYAm1ZyDh5qYW7Rz-t-P3KDwx3oMZQ/exec';
 
-const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxk4L9wsfWAaTi_MF7HWxVXhGJ5qguE6c3PeTDUS0ZIPX9YkxD6tU8_Z3IPhVSqjwumvw/exec";
+let inventoryData = [], categories = ['德昱興', '華立', '樂樂', 'PORON', '泡棉', '3M', '國貿', '晉昌', '培遠', '其他'], currentCat = '全部', isCollapsed = false, editingMasterId = null;
+let const normStr = s => (s || '').toString().trim().toUpperCase();
 
-let inventoryData = [], categoriesList = [
-  '德昱興', '華立', '樂榮', '羅傑斯', '昶瑞', '倍速', '好加', '冠好', 
-  'PORON', '泡棉', '3M', '國貿', '晉昌', '精強', '靖昌', '頂誌', 
-  '慧迅', '金開', '伍豐', '家巧', '樂高', '寶燕', '其他'
-], currentCat = '全部', isCollapsed = false, editingMasterId = null;
-
-const $ = id => document.getElementById(id);
-const normStr = s => s ? s.toString().trim().toUpperCase().replace(/(^|[^0-9])\.([0-9]+)/g, '$10.$2') : '';
-
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener('DOMContentLoaded', () => {
   fetchInventoryData();
   setupEvents();
 });
 
 async function fetchInventoryData() {
   try {
-    setBar(true);
-    let res = await fetch(GAS_WEB_APP_URL + "?action=getInventory");
-    let data = await res.json();
-    if (data && data.status === 'success') {
-      inventoryData = data.masters || [];
-      if (data.categories && data.categories.length > 0) categoriesList = data.categories;
-      renderChips();
-      renderSummary();
+    const res = await fetch(`${GAS_WEB_APP_URL}?action=getInventory`);
+    const data = await res.json();
+    if (data.status === 'success') {
+      inventoryData = data.inventory || [];
+      if (data.categories && data.categories.length > 0) categories = data.categories;
     }
-  } catch (e) {
-    console.error("載入失敗：", e);
+  } catch (err) {
+    console.error('取得資料失敗', err);
   } finally {
-    setBar(false);
+    renderChips();
+    renderSummary();
   }
 }
 
 function renderChips() {
-  const container = $('categoryChips');
+  const container = document.getElementById('categoryChips');
   if (!container) return;
-  const cats = ['全部', 'WARN', ...categoriesList];
-  container.innerHTML = cats.map(c => `<button type="button" class="chip ${currentCat === c ? 'active' : ''}" data-cat="${c}">${c === 'WARN' ? '⚠️ 庫存過低' : c}</button>`).join('');
+  let cats = ['全部', '庫存過低', ...categories];
+  container.innerHTML = cats.map(c => `<button class="chip ${c === currentCat ? 'active' : ''}" onclick="filterCat('${c}')">${c}</button>`).join('');
 }
 
 function renderSummary() {
-  const div = $('inventoryStockSummary');
-  if (!div) return;
+  const container = document.getElementById('inventorySummary');
+  if (!container) return;
   let list = inventoryData;
-  if (currentCat === 'WARN') {
-    list = inventoryData.filter(i => Number(i.safetyStock) > 0 && Number(i.stock || 0) <= Number(i.safetyStock));
+  if (currentCat === '庫存過低') {
+    list = inventoryData.filter(i => Number(i.stock) <= Number(i.safetyStock) && Number(i.safetyStock) > 0);
   } else if (currentCat !== '全部') {
     list = inventoryData.filter(i => i.category === currentCat);
   }
-  const kw = normStr($('search-input')?.value);
-  if (kw) list = list.filter(i => normStr(i.name).includes(kw));
 
-  if (!list.length) {
-    div.innerHTML = `<div style="padding:20px;text-align:center;color:#888;">目前無物料資料</div>`;
+  if (list.length === 0) {
+    container.innerHTML = `<div style="padding:20px;text-align:center;color:#886;">目前無物料資料</div>`;
     return;
   }
 
-  div.innerHTML = list.map(i => {
-    let low = Number(i.safetyStock) > 0 && Number(i.stock || 0) <= Number(i.safetyStock);
-    return `<div class="card stock-card-item ${low ? 'k-warn' : 'k-ok'}" data-name="${i.name}" data-thick="${i.thickness||''}" style="margin-bottom:8px;padding:12px;cursor:pointer;border-radius:8px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <strong style="font-size:15px;">${i.name} ${i.thickness?'('+i.thickness+'mm)':''}</strong>
-        <span style="color:${low?'#ef4444':'#10b981'};font-weight:bold;">庫存:${i.stock||0}</span>
+  container.innerHTML = list.map(item => {
+    let isLow = Number(item.safetyStock) > 0 && Number(item.stock) <= Number(item.safetyStock);
+    let t = (item.thickness || '').toString().trim();
+    let s = (item.size || '').toString().trim();
+    let specStr = t && s ? `${t}mm X ${s}` : (t ? `${t}mm` : (s ? s : '無規格'));
+    return `
+      <div style="background:#fff;border:1px solid ${isLow ? '#ff4d4f' : '#ddd'};border-radius:8px;padding:10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-weight:bold;font-size:16px;">${item.name} <span style="font-size:12px;color:#666;font-weight:normal;">(${specStr})</span></div>
+          <div style="font-size:12px;color:#886;">分類:${item.category} | 規格:${specStr} | 安全:${item.safetyStock} | MOQ:${item.moq}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:18px;font-weight:bold;color:${isLow ? '#ff4d4f' : '#008000'};">庫存:${item.stock}</div>
+          <button onclick="editMaster('${item.id}')" style="background:#007bff;color:#fff;border:none;padding:2px 8px;border-radius:4px;font-size:11px;margin-top:4px;">編輯</button>
+        </div>
       </div>
-      <div style="font-size:12px;color:#aaa;margin-top:4px;">分類:${i.category} | 規格:${i.size||'無'} | 安全:${i.safetyStock||0} | MOQ:${i.moq||0}</div>
-    </div>`;
+    `;
   }).join('');
 }
 
+function filterCat(cat) {
+  currentCat = cat;
+  renderChips();
+  renderSummary();
+}
+
 function setupEvents() {
-  $('search-input')?.addEventListener('input', renderSummary);
-  
-  $('categoryChips')?.addEventListener('click', e => {
-    if (e.target.classList.contains('chip')) {
-      currentCat = e.target.dataset.cat;
-      isCollapsed = false;
-      $('inventoryStockSummary').style.display = 'block';
-      if ($('btnToggleSummary')) $('btnToggleSummary').innerText = '收起 ▲';
-      renderChips();
-      renderSummary();
-    }
-  });
-
-  $('btnToggleSummary')?.addEventListener('click', () => {
-    isCollapsed = !isCollapsed;
-    $('inventoryStockSummary').style.display = isCollapsed ? 'none' : 'block';
-    $('btnToggleSummary').innerText = isCollapsed ? '展開 ▼' : '收起 ▲';
-  });
-
-  $('btnAddMasterQuick')?.addEventListener('click', () => {
-    openMasterModal(normStr($('txMaterialName')?.value), normStr($('txThickness')?.value));
-  });
-
-  $('btnCloseMaster')?.addEventListener('click', closeMasterModal);
-  $('masterModal')?.addEventListener('click', e => {
-    if (e.target.id === 'masterModal') closeMasterModal();
-  });
-
-  $('btnOpenCategoryPicker')?.addEventListener('click', openCatPicker);
-  $('btnCloseCategoryPicker')?.addEventListener('click', closeCatPicker);
-  $('categoryPickerModal')?.addEventListener('click', e => {
-    if (e.target.id === 'categoryPickerModal') closeCatPicker();
-  });
-
-  $('btnAddCustomCategory')?.addEventListener('click', () => {
-    let newCat = prompt('請輸入新分類名稱：');
-    if (newCat && newCat.trim()) {
-      let trimmed = newCat.trim();
-      if (!categoriesList.includes(trimmed)) {
-        categoriesList.push(trimmed);
-        saveCategoriesToCloud();
+  const nameInput = document.getElementById('materialName');
+  if (nameInput) {
+    nameInput.addEventListener('input', (e) => {
+      let val = normStr(e.target.value);
+      let found = inventoryData.find(i => normStr(i.name) === val);
+      if (found) {
+        document.getElementById('thickness').value = found.thickness || '';
       }
-      if ($('newMasterCategory')) $('newMasterCategory').value = trimmed;
-      closeCatPicker();
+    });
+  }
+}
+
+async function handleAction(type) {
+  const name = normStr(document.getElementById('materialName').value);
+  const thickness = normStr(document.getElementById('thickness').value);
+  const qty = Number(document.getElementById('qty').value);
+
+  if (!name || !qty || qty <= 0) {
+    alert('請填寫完整的品名與大於0的數量');
+    return;
+  }
+
+  let found = inventoryData.find(i => normStr(i.name) === name);
+  if (!found && type === 'IN') {
+    if (confirm(`查無「${name}」的物料主檔，是否立即建立主檔？`)) {
+      openMasterModal(name, thickness);
+      return;
+    } else {
+      return;
     }
-  });
+  }
 
-  $('btnSaveNewMaster')?.addEventListener('click', saveMasterFromModal);
-
-  document.addEventListener('click', e => {
-    let card = e.target.closest('.stock-card-item');
-    if (card) {
-      if ($('txMaterialName')) $('txMaterialName').value = normStr(card.dataset.name);
-      if ($('txThickness')) $('txThickness').value = normStr(card.dataset.thick);
-      $('txCard')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  });
-
-  $('btnIn')?.addEventListener('click', () => handleTx('IN'));
-  $('btnOut')?.addEventListener('click', () => handleTx('OUT'));
-}
-
-function openMasterModal(name = '', thick = '') {
-  editingMasterId = Date.now();
-  if ($('newMasterName')) $('newMasterName').value = normStr(name);
-  if ($('newMasterCategory')) $('newMasterCategory').value = categoriesList[0] || '其他';
-  if ($('newMasterThickness')) $('newMasterThickness').value = normStr(thick);
-  if ($('newMasterSize')) $('newMasterSize').value = '';
-  if ($('newMasterSafetyStock')) $('newMasterSafetyStock').value = '0';
-  if ($('newMasterMoq')) $('newMasterMoq').value = '0';
-  if ($('masterModal')) $('masterModal').style.display = 'flex';
-  setTimeout(() => $('newMasterName')?.focus(), 100);
-}
-
-function closeMasterModal() {
-  if ($('masterModal')) $('masterModal').style.display = 'none';
-}
-
-function openCatPicker() {
-  const grid = $('categoryPickerGrid');
-  if (!grid) return;
-  grid.innerHTML = categoriesList.map(c => `<button type="button" class="cat-picker-btn" data-cat="${c}" style="padding:10px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;">${c}</button>`).join('');
-  
-  grid.querySelectorAll('.cat-picker-btn').forEach(btn => {
-    btn.onclick = () => {
-      if ($('newMasterCategory')) $('newMasterCategory').value = btn.dataset.cat;
-      closeCatPicker();
+  try {
+    const payload = {
+      action: 'addTransaction',
+      log: {
+        id: Date.now(),
+        type: type,
+        materialName: name,
+        thickness: thickness,
+        qty: qty,
+        time: new Date().toLocaleString()
+      }
     };
-  });
-  if ($('categoryPickerModal')) $('categoryPickerModal').style.display = 'flex';
+    
+    const res = await fetch(GAS_WEB_APP_URL, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+    const result = await res.json();
+    if (result.status === 'success') {
+      alert(type === 'IN' ? '入庫成功！' : '出庫成功！');
+      document.getElementById('materialName').value = '';
+      document.getElementById('thickness').value = '';
+      document.getElementById('qty').value = '';
+      fetchInventoryData();
+    } else {
+      alert('操作失敗: ' + result.message);
+    }
+  } catch (err) {
+    alert('網路異常，操作失敗');
+  }
 }
 
-function closeCatPicker() {
-  if ($('categoryPickerModal')) $('categoryPickerModal').style.display = 'none';
-}
+function openMasterModal(defaultName = '', defaultThickness = '') {
+  let name = prompt('請輸入物料名稱:', defaultName);
+  if (!name) return;
+  let category = prompt('請輸入分類 (' + categories.join(', ') + '):', categories[0]);
+  if (!category) return;
+  let thickness = prompt('請輸入厚度 (mm):', defaultThickness);
+  let size = prompt('請輸入尺寸 (例如 930x680M):', '');
+  let safetyStock = prompt('請輸入安全庫存:', '0');
+  let moq = prompt('請輸入 MOQ (最低訂購量):', '0');
 
-async function saveMasterFromModal() {
-  let name = normStr($('newMasterName')?.value);
-  let category = $('newMasterCategory')?.value || '其他';
-  let thickness = normStr($('newMasterThickness')?.value);
-  let size = normStr($('newMasterSize')?.value);
-  let safetyStock = Number($('newMasterSafetyStock')?.value) || 0;
-  let moq = Number($('newMasterMoq')?.value) || 0;
-
-  if (!name) return alert('請輸入品名！');
-
-  const itemObj = {
-    id: editingMasterId || Date.now(),
+  saveMasterToCloud({
+    id: Date.now(),
     category: category,
     name: name,
     thickness: thickness,
     size: size,
-    safetyStock: safetyStock,
-    moq: moq
-  };
-
-  try {
-    setBar(true);
-    let res = await fetch(GAS_WEB_APP_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action: "saveMaster", master: itemObj })
-    });
-    let r = await res.json();
-    if (r.status === 'success') {
-      alert(`✅ 成功新增物料主檔：「${name}」！`);
-      closeMasterModal();
-      fetchInventoryData();
-    } else {
-      alert("儲存失敗：" + (r.message || "未知錯誤"));
-    }
-  } catch (e) {
-    console.error(e);
-    alert("儲存主檔連線失敗");
-  } finally {
-    setBar(false);
-  }
-}
-
-async function saveCategoriesToCloud() {
-  await fetch(GAS_WEB_APP_URL, {
-    method: "POST",
-    headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify({ action: "saveCategories", categories: categoriesList })
+    safetyStock: Number(safetyStock) || 0,
+    moq: Number(moq) || 0
   });
 }
 
-async function handleTx(type) {
-  let name = normStr($('txMaterialName')?.value);
-  let thick = normStr($('txThickness')?.value);
-  let qty = Number($('txQty')?.value);
-
-  if (!name || !qty || qty <= 0) return alert("請完整填寫品名與數量！");
-
-  let found = inventoryData.find(i => normStr(i.name) === name);
-  if (!found) {
-    if (confirm(`⚠️ 查無「${name}」的物料主檔，是否立即建立主檔？`)) {
-      openMasterModal(name, thick);
-    }
-    return;
-  }
-
+async function saveMasterToCloud(master) {
   try {
-    setBar(true);
-    let logObj = { id: Date.now(), type, materialName: name, thickness: thick || found.thickness || '0', qty, time: new Date().toLocaleString() };
-    
-    let res = await fetch(GAS_WEB_APP_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action: "addLog", log: logObj })
+    const payload = { action: 'saveMaster', master: master };
+    const res = await fetch(GAS_WEB_APP_URL, {
+      method: 'POST',
+      body: JSON.stringify(payload)
     });
-    let r = await res.json();
-
-    if (r.status === 'success') {
-      alert(type === 'IN' ? "✅ 入庫成功！" : "✅ 出庫成功！");
-      if ($('txQty')) $('txQty').value = '';
-      if ($('txMaterialName')) $('txMaterialName').value = '';
-      if ($('txThickness')) $('txThickness').value = '';
+    const result = await res.json();
+    if (result.status === 'success') {
+      alert(`成功新增物料主檔：「${master.name}」！`);
       fetchInventoryData();
     } else {
-      alert("交易失敗：" + (r.message || "未知錯誤"));
+      alert('儲存主檔失敗');
     }
   } catch (e) {
-    console.error(e);
-    alert("交易連線失敗");
-  } finally {
-    setBar(false);
+    alert('網路異常');
   }
 }
 
-function setBar(loading) {
-  let bar = $('status-bar');
-  if (bar) {
-    bar.innerText = loading ? '⏳ 正在同步...' : '🟢 系統就緒';
-    bar.style.backgroundColor = loading ? '#d97706' : '#166534';
-  }
+function editMaster(id) {
+  let item = inventoryData.find(i => String(i.id) === String(id));
+  if (!item) return;
+  let category = prompt('修改分類:', item.category);
+  let thickness = prompt('修改厚度:', item.thickness);
+  let size = prompt('修改尺寸:', item.size);
+  let safetyStock = prompt('修改安全庫存:', item.safetyStock);
+  let moq = prompt('修改 MOQ:', item.moq);
+
+  saveMasterToCloud({
+    id: item.id,
+    category: category || item.category,
+    name: item.name,
+    thickness: thickness || item.thickness,
+    size: size || item.size,
+    safetyStock: Number(safetyStock) || 0,
+    moq: Number(moq) || 0
+  });
 }
