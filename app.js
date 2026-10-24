@@ -18,43 +18,87 @@ document.addEventListener("DOMContentLoaded", () => {
   setupEvents();
 });
 
-// 💡 透過 JSONP 載入資料，完美繞過 CORS 攔截
+// 💡 雙重保險載入機制：優先使用 JSONP，失敗時自動改用標準 Fetch 備援
 function fetchInventoryData() {
   setBar(true);
   const callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
-  
+  let isLoaded = false;
+
   window[callbackName] = function(data) {
+    if (isLoaded) return;
+    isLoaded = true;
     delete window[callbackName];
     document.getElementById('jsonp-script')?.remove();
     
     if (data && data.status === 'success') {
-      inventoryData = data.inventory || [];
-      if (data.categories && data.categories.length > 0) {
-        categoriesList = data.categories;
-      }
-      
-      inventoryData.forEach(i => {
-        if (i.category && !categoriesList.includes(i.category)) {
-          categoriesList.push(i.category);
-        }
-      });
+      processInventoryData(data);
+    } else {
+      fallbackFetch();
     }
-    renderChips();
-    renderSummary();
-    updateDatalists();
-    setBar(false);
   };
 
   const script = document.createElement('script');
   script.id = 'jsonp-script';
   script.src = `${GAS_WEB_APP_URL}?action=getInventory&callback=${callbackName}&t=${Date.now()}`;
+  
   script.onerror = function() {
-    setBar(false);
+    if (isLoaded) return;
+    isLoaded = true;
+    document.getElementById('jsonp-script')?.remove();
+    console.warn("JSONP 載入失敗，啟動標準 Fetch 備援機制...");
+    fallbackFetch();
+  };
+
+  document.body.appendChild(script);
+
+  // 逾時防護：若 5 秒內 JSONP 無回應，強制切換至 fetch
+  setTimeout(() => {
+    if (!isLoaded) {
+      isLoaded = true;
+      document.getElementById('jsonp-script')?.remove();
+      console.warn("JSONP 逾時，啟動標準 Fetch 備援機制...");
+      fallbackFetch();
+    }
+  }, 5000);
+}
+
+// 備援 Fetch 機制
+async function fallbackFetch() {
+  try {
+    let res = await fetch(GAS_WEB_APP_URL + "?action=getInventory&t=" + Date.now(), { mode: 'cors' });
+    let data = await res.json();
+    if (data && data.status === 'success') {
+      processInventoryData(data);
+    } else {
+      throw new Error("API 狀態非 success");
+    }
+  } catch (e) {
+    console.error("備援 Fetch 也失敗：", e);
+    // 即使連線完全失敗，也確保畫面上的分類按鈕與容器能正常渲染
     renderChips();
     renderSummary();
-    console.error("JSONP 載入失敗");
-  };
-  document.body.appendChild(script);
+    updateDatalists();
+  } finally {
+    setBar(false);
+  }
+}
+
+function processInventoryData(data) {
+  inventoryData = data.inventory || [];
+  if (data.categories && data.categories.length > 0) {
+    categoriesList = data.categories;
+  }
+  
+  inventoryData.forEach(i => {
+    if (i.category && !categoriesList.includes(i.category)) {
+      categoriesList.push(i.category);
+    }
+  });
+
+  renderChips();
+  renderSummary();
+  updateDatalists();
+  setBar(false);
 }
 
 function updateDatalists() {
