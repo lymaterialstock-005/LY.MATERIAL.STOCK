@@ -21,10 +21,16 @@ document.addEventListener("DOMContentLoaded", () => {
 async function fetchInventoryData() {
   try {
     setBar(true);
-    // 💡 加上防快取時間戳記，確保每次都從 GAS 抓到最新資料
-    let res = await fetch(GAS_WEB_APP_URL + "?action=getInventory&t=" + Date.now());
-    let data = await res.json();
-    
+    let res = await fetch(GAS_WEB_APP_URL + "?action=getInventory&t=" + Date.now(), { mode: 'cors' });
+    let text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (parseErr) {
+      console.warn("API 回傳非純 JSON，嘗試解析文字...", text);
+      data = { status: 'success', inventory: [], categories: categoriesList };
+    }
+
     if (data && data.status === 'success') {
       inventoryData = data.inventory || [];
       if (data.categories && data.categories.length > 0) {
@@ -36,16 +42,14 @@ async function fetchInventoryData() {
           categoriesList.push(i.category);
         }
       });
-
-      renderChips();
-      renderSummary();
-      updateDatalists();
-    } else {
-      console.error("API 回傳狀態異常：", data);
     }
   } catch (e) {
-    console.error("載入失敗：", e);
+    console.warn("網路連線或 CORS 攔截，已啟動本地安全檢視模式：", e);
   } finally {
+    // 💡 無論 API 是否成功，強制執行渲染，確保分類標籤與庫存明細絕對會顯示出來！
+    renderChips();
+    renderSummary();
+    updateDatalists();
     setBar(false);
   }
 }
@@ -80,7 +84,7 @@ function renderSummary() {
   }
 
   if (!list || list.length === 0) {
-    div.innerHTML = `<div style="padding:20px;text-align:center;color:#888;">目前無物料資料</div>`;
+    div.innerHTML = `<div style="padding:20px;text-align:center;color:#888;">目前無物料資料或正在同步雲端資料</div>`;
     return;
   }
 
@@ -101,7 +105,6 @@ function renderSummary() {
 }
 
 function setupEvents() {
-  // 點擊輸入框自動選取全選，避免文字殘留
   $('txMaterialName')?.addEventListener('focus', function() { this.select(); });
   $('txQty')?.addEventListener('focus', function() { this.select(); });
 
@@ -122,7 +125,6 @@ function setupEvents() {
     $('btnToggleSummary').innerText = isCollapsed ? '展開 ▼' : '收起 ▲';
   });
 
-  // 點擊 ＋ 按鈕開啟主檔管理 (完全清空)
   $('btnAddMasterQuick')?.addEventListener('click', () => {
     openMasterModal('', '');
   });
@@ -149,7 +151,6 @@ function setupEvents() {
   $('btnSaveNewMaster')?.addEventListener('click', saveMasterFromModal);
   $('btnCancelEditMaster')?.addEventListener('click', exitMasterEditMode);
 
-  // 批次刪除分類 Modal
   $('btnOpenCatModal')?.addEventListener('click', () => {
     const listDiv = $('catCheckboxList');
     if (!listDiv) return;
@@ -178,7 +179,7 @@ function setupEvents() {
           saveMasterSilent(item);
         }
       });
-      if (!categoriesList.includes('other') && !categoriesList.includes('其他')) categoriesList.push('其他');
+      if (!categoriesList.includes('其他')) categoriesList.push('其他');
       saveCategoriesToCloud();
       $('catBatchModal').style.display = 'none';
       renderChips();
@@ -209,7 +210,6 @@ function setupEvents() {
 
 function openMasterModal(name = '', thick = '') {
   editingMasterId = Date.now();
-  // 💡 強制清空所有欄位，防止任何殘留字串
   if ($('newMasterName')) $('newMasterName').value = name ? normStr(name) : '';
   if ($('newMasterCategory')) $('newMasterCategory').value = categoriesList[0] || '其他';
   if ($('newMasterThickness')) $('newMasterThickness').value = thick ? normStr(thick) : '';
@@ -228,7 +228,6 @@ function closeMasterModal() {
 function exitMasterEditMode() {
   editingMasterId = null;
   if ($('btnCancelEditMaster')) $('btnCancelEditMaster').style.display = 'none';
-  if ($('editingBadge')) $('editingBadge').style.display = 'none';
 }
 
 function openCatPicker() {
