@@ -115,6 +115,7 @@ function setupEvents() {
     $('btnToggleSummary').innerText = isCollapsed ? '展開 ▼' : '收起 ▲';
   });
 
+  // 點擊 ＋ 按鈕時開啟主檔管理 (名稱欄位會自動帶入並清空殘留)
   $('btnAddMasterQuick')?.addEventListener('click', () => {
     openMasterModal(normStr($('txMaterialName')?.value), normStr($('txThickness')?.value));
   });
@@ -124,7 +125,6 @@ function setupEvents() {
     if (e.target.id === 'masterModal') closeMasterModal();
   });
 
-  // 新增分類按鈕 (置於主檔標題旁)
   $('btnAddCustomCategory')?.addEventListener('click', () => {
     let newCat = prompt('請輸入新分類名稱：');
     if (newCat && newCat.trim()) {
@@ -147,8 +147,8 @@ function setupEvents() {
     const listDiv = $('catCheckboxList');
     if (!listDiv) return;
     listDiv.innerHTML = categoriesList.map(c => `
-      <label style="display:flex; align-items:center; gap:8px; color:#fff; font-size:14px; cursor:pointer;">
-        <input type="checkbox" value="${c}" class="cat-del-chk" style="transform: scale(1.2);"> ${c}
+      <label class="cat-del-label">
+        <input type="checkbox" value="${c}" class="cat-del-chk"> ${c}
       </label>
     `).join('');
     $('catBatchModal').style.display = 'flex';
@@ -202,9 +202,10 @@ function setupEvents() {
 
 function openMasterModal(name = '', thick = '') {
   editingMasterId = Date.now();
-  if ($('newMasterName')) $('newMasterName').value = normStr(name);
+  // 確保每次開啟時乾淨清空或帶入正確數值
+  if ($('newMasterName')) $('newMasterName').value = name;
   if ($('newMasterCategory')) $('newMasterCategory').value = categoriesList[0] || '其他';
-  if ($('newMasterThickness')) $('newMasterThickness').value = normStr(thick);
+  if ($('newMasterThickness')) $('newMasterThickness').value = thick;
   if ($('newMasterSize')) $('newMasterSize').value = '';
   if ($('newMasterSafetyStock')) $('newMasterSafetyStock').value = '';
   if ($('newMasterMoq')) $('newMasterMoq').value = '';
@@ -336,9 +337,10 @@ async function handleTx(type) {
 
     if (r.status === 'success') {
       alert(type === 'IN' ? "✅ 入庫成功！" : "✅ 出庫成功！");
-      if ($('txQty')) $('txQty').value = '';
-      if ($('txMaterialName')) $('txMaterialName').value = '';
-      if ($('txThickness')) $('txThickness').value = '';
+      if ($('txQty')) $('txQty', 'txMaterialName', 'txThickness').forEach(el => { if(el) el.value = ''; });
+      $('txQty').value = '';
+      $('txMaterialName').value = '';
+      $('txThickness').value = '';
       fetchInventoryData();
     } else {
       alert("交易失敗：" + (r.message || "未知錯誤"));
