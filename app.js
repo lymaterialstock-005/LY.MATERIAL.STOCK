@@ -35,7 +35,7 @@ async function fetchInventoryData() {
 
       renderChips();
       renderSummary();
-      updateDatalists();
+      setupDatalistTrigger();
     }
   } catch (e) {
     console.error("載入失敗：", e);
@@ -44,15 +44,23 @@ async function fetchInventoryData() {
   }
 }
 
-function updateDatalists() {
-  const matList = $('materialListOptions');
-  if (matList) {
-    matList.innerHTML = inventoryData.map(i => `<option value="${i.name}">`).join('');
-  }
-  const catList = $('categoryListOptions');
-  if (catList) {
-    catList.innerHTML = categoriesList.map(c => `<option value="${c}">`).join('');
-  }
+// 💡 智慧快選控制：手動輸入「至少 1 個字」後才動態塞入選項，避免一開始就彈出干擾
+function setupDatalistTrigger() {
+  const input = $('txMaterialName');
+  const datalist = $('materialListOptions');
+  if (!input || !datalist) return;
+
+  input.addEventListener('input', () => {
+    let val = input.value.trim();
+    if (val.length >= 1) {
+      datalist.innerHTML = inventoryData
+        .filter(i => normStr(i.name).includes(normStr(val)))
+        .map(i => `<option value="${i.name}">`)
+        .join('');
+    } else {
+      datalist.innerHTML = ''; // 未滿 1 個字時保持空白，不彈出快選
+    }
+  });
 }
 
 function renderChips() {
@@ -115,9 +123,9 @@ function setupEvents() {
     $('btnToggleSummary').innerText = isCollapsed ? '展開 ▼' : '收起 ▲';
   });
 
-  // 點擊 ＋ 按鈕時開啟主檔管理 (名稱欄位會自動帶入並清空殘留)
+  // 💡 點擊 ＋ 按鈕時開啟主檔管理，強制所有欄位（分類、名稱、厚度、尺寸、安全庫存、MOQ）完全歸零與清空
   $('btnAddMasterQuick')?.addEventListener('click', () => {
-    openMasterModal(normStr($('txMaterialName')?.value), normStr($('txThickness')?.value));
+    openMasterModal('', '');
   });
 
   $('btnCloseMaster')?.addEventListener('click', closeMasterModal);
@@ -135,14 +143,12 @@ function setupEvents() {
       }
       if ($('newMasterCategory')) $('newMasterCategory').value = trimmed;
       renderChips();
-      updateDatalists();
     }
   });
 
   $('btnSaveNewMaster')?.addEventListener('click', saveMasterFromModal);
   $('btnCancelEditMaster')?.addEventListener('click', exitMasterEditMode);
 
-  // 批次刪除分類 Modal
   $('btnOpenCatModal')?.addEventListener('click', () => {
     const listDiv = $('catCheckboxList');
     if (!listDiv) return;
@@ -176,7 +182,6 @@ function setupEvents() {
       $('catBatchModal').style.display = 'none';
       renderChips();
       renderSummary();
-      updateDatalists();
       alert('✅ 分類刪除成功，對應物料已自動移至「其他」！');
     }
   });
@@ -202,9 +207,9 @@ function setupEvents() {
 
 function openMasterModal(name = '', thick = '') {
   editingMasterId = Date.now();
-  // 確保每次開啟時乾淨清空或帶入正確數值
+  // 💡 強制清空所有欄位：分類、名稱、厚度、尺寸、安全庫存、MOQ
+  if ($('newMasterCategory')) $('newMasterCategory').value = '';
   if ($('newMasterName')) $('newMasterName').value = name;
-  if ($('newMasterCategory')) $('newMasterCategory').value = categoriesList[0] || '其他';
   if ($('newMasterThickness')) $('newMasterThickness').value = thick;
   if ($('newMasterSize')) $('newMasterSize').value = '';
   if ($('newMasterSafetyStock')) $('newMasterSafetyStock').value = '';
@@ -221,7 +226,6 @@ function closeMasterModal() {
 function exitMasterEditMode() {
   editingMasterId = null;
   if ($('btnCancelEditMaster')) $('btnCancelEditMaster').style.display = 'none';
-  if ($('editingBadge')) $('editingBadge').style.display = 'none';
 }
 
 function openCatPicker() {
@@ -244,7 +248,7 @@ function closeCatPicker() {
 
 async function saveMasterFromModal() {
   let name = normStr($('newMasterName')?.value);
-  let category = $('newMasterCategory')?.value || '其他';
+  let category = $('newMasterCategory')?.value.trim() || '其他';
   let thickness = normStr($('newMasterThickness')?.value);
   let size = normStr($('newMasterSize')?.value);
   let safetyStock = Number($('newMasterSafetyStock')?.value) || 0;
@@ -321,7 +325,6 @@ async function handleTx(type) {
     return;
   }
 
-  // 嚴格檢查出庫庫存
   if (type === 'OUT' && Number(found.qty || 0) < qty) {
     return alert(`❌ 庫存不足！目前庫存僅剩 ${found.qty || 0}，無法出庫 ${qty} 個！`);
   }
@@ -337,10 +340,9 @@ async function handleTx(type) {
 
     if (r.status === 'success') {
       alert(type === 'IN' ? "✅ 入庫成功！" : "✅ 出庫成功！");
-      if ($('txQty')) $('txQty', 'txMaterialName', 'txThickness').forEach(el => { if(el) el.value = ''; });
-      $('txQty').value = '';
-      $('txMaterialName').value = '';
-      $('txThickness').value = '';
+      if ($('txQty')) $('txQty').value = '';
+      if ($('txMaterialName')) $('txMaterialName').value = '';
+      if ($('txThickness')) $('txThickness').value = '';
       fetchInventoryData();
     } else {
       alert("交易失敗：" + (r.message || "未知錯誤"));
