@@ -2,7 +2,8 @@
  * 📊 全面雲端化入出庫兼採購系統 - 前端主程式 (app.js)
  */
 
-const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbz2KaRQ9c4W60H0jSj3bf7h8FVIpKFVeRL1c2DlsUb2XPtVdEqAzB_bQg4LXZhng/exec';
+const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbjYhpL81dASZ0VQx6-OfidxmEDkfNkE42Nh_mTGYaurzhzPHLngzgWLDLnA-yjxA/exec';
+
 
 let inventoryData = [], categoriesList = [
   '德昱興', '華立', '樂榮', '羅傑斯', '昶瑞', '倍速', '好加', '冠好', 
