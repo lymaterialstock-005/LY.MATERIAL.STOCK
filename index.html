@@ -20,7 +20,10 @@
         </div>
     </h2>
 
+    <!-- 分類標籤容器 -->
     <div id="categoryChips" class="chips-container"></div>
+    
+    <!-- 庫存明細列表容器 -->
     <div id="inventoryStockSummary" style="padding: 0 12px; margin-bottom: 16px;"></div>
 
     <h2>📝 物料入出庫異動</h2>
@@ -28,7 +31,6 @@
         <div class="form-group">
             <label>1. 物料名稱</label>
             <div class="search-container" style="display: flex; gap: 8px;">
-                <!-- 結合 datalist，但透過 JS 控制必須輸入滿 1 個字以上才載入選項，避免預設彈出干擾 -->
                 <input type="text" id="txMaterialName" list="materialListOptions" placeholder="請輸入至少一個字以觸發快選" style="flex: 1;">
                 <datalist id="materialListOptions"></datalist>
                 <button type="button" id="btnAddMasterQuick" class="btn-icon" title="新增物料主檔" style="padding: 8px 14px; font-size: 18px; background: #2563eb; color: white; border: none; border-radius: 6px;">＋</button>
@@ -64,11 +66,14 @@
                 </div>
             </div>
 
+            <div id="editingBadge" style="display: none; background: #1e3a8a; padding: 6px 10px; border-radius: 6px; font-size: 12px; margin-bottom: 10px; color: #93c5fd;"></div>
+
             <div id="masterFormSection">
                 <div class="form-group" style="margin-bottom: 10px;">
                     <label style="font-size: 13px; color: #ccc;">物料分類</label>
                     <div style="display: flex; gap: 6px;">
-                        <input type="text" id="newMasterCategory" placeholder="選擇或輸入分類" style="flex: 1; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #222; color: #fff;">
+                        <input type="text" id="newMasterCategory" list="categoryListOptions" placeholder="選擇或輸入分類" style="flex: 1; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #222; color: #fff;">
+                        <datalist id="categoryListOptions"></datalist>
                         <button type="button" id="btnOpenCategoryPicker" style="background: #374151; color: white; border: none; padding: 0 10px; border-radius: 6px; font-size: 12px; cursor: pointer;">選擇</button>
                     </div>
                 </div>
