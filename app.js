@@ -1,8 +1,8 @@
 /**
- * 全面雲端化入出庫兼採購系統 - app.js (完整功能恢復版)
+ * 📊 全面雲端化入出庫兼採購系統 - 前端主程式 (app.js)
  */
 
-const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwqFoRX-lMt38ho00ACFIF6AsjSOgkT8LTKVed0kYAm1ZyDh5qYW7Rz-t-P3KDwx3oMZQ/exec';
+const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbz2KaRQ9c4W60H0jSj3bf7h8FVIpKFVeRL1c2DlsUb2XPtVdEqAzB_bQg4LXZhng/exec';
 
 let inventoryData = [], categoriesList = [
   '德昱興', '華立', '樂榮', '羅傑斯', '昶瑞', '倍速', '好加', '冠好', 
@@ -26,13 +26,32 @@ async function fetchInventoryData() {
     if (data && data.status === 'success') {
       inventoryData = data.inventory || [];
       if (data.categories && data.categories.length > 0) categoriesList = data.categories;
+      
+      inventoryData.forEach(i => {
+        if (i.category && !categoriesList.includes(i.category)) {
+          categoriesList.push(i.category);
+        }
+      });
+
       renderChips();
       renderSummary();
+      updateDatalists();
     }
   } catch (e) {
     console.error("載入失敗：", e);
   } finally {
     setBar(false);
+  }
+}
+
+function updateDatalists() {
+  const matList = $('materialListOptions');
+  if (matList) {
+    matList.innerHTML = inventoryData.map(i => `<option value="${i.name}">`).join('');
+  }
+  const catList = $('categoryListOptions');
+  if (catList) {
+    catList.innerHTML = categoriesList.map(c => `<option value="${c}">`).join('');
   }
 }
 
@@ -62,12 +81,16 @@ function renderSummary() {
 
   div.innerHTML = list.map(i => {
     let low = Number(i.safetyStock) > 0 && Number(i.qty || 0) <= Number(i.safetyStock);
+    let safeStr = Number(i.safetyStock) > 0 ? `安全:${i.safetyStock}` : '';
+    let moqStr = Number(i.moq) > 0 ? `MOQ:${i.moq}` : '';
+    let metaStr = [ `分類:${i.category}`, i.size ? `規格:${i.size}` : '', safeStr, moqStr ].filter(Boolean).join(' | ');
+
     return `<div class="card stock-card-item ${low ? 'k-warn' : 'k-ok'}" data-name="${i.name}" data-thick="${i.thickness||''}" style="margin-bottom:8px;padding:12px;cursor:pointer;border-radius:8px;">
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <strong style="font-size:15px;">${i.name} ${i.thickness?'('+i.thickness+'mm)':''}</strong>
         <span style="color:${low?'#ef4444':'#10b981'};font-weight:bold;">庫存:${i.qty||0}</span>
       </div>
-      <div style="font-size:12px;color:#aaa;margin-top:4px;">分類:${i.category} | 規格:${i.size||'無'} | 安全:${i.safetyStock||0} | MOQ:${i.moq||0}</div>
+      <div style="font-size:12px;color:#aaa;margin-top:4px;">${metaStr}</div>
     </div>`;
   }).join('');
 }
@@ -101,12 +124,7 @@ function setupEvents() {
     if (e.target.id === 'masterModal') closeMasterModal();
   });
 
-  $('btnOpenCategoryPicker')?.addEventListener('click', openCatPicker);
-  $('btnCloseCategoryPicker')?.addEventListener('click', closeCatPicker);
-  $('categoryPickerModal')?.addEventListener('click', e => {
-    if (e.target.id === 'categoryPickerModal') closeCatPicker();
-  });
-
+  // 新增分類按鈕 (置於主檔標題旁)
   $('btnAddCustomCategory')?.addEventListener('click', () => {
     let newCat = prompt('請輸入新分類名稱：');
     if (newCat && newCat.trim()) {
@@ -116,13 +134,59 @@ function setupEvents() {
         saveCategoriesToCloud();
       }
       if ($('newMasterCategory')) $('newMasterCategory').value = trimmed;
-      closeCatPicker();
+      renderChips();
+      updateDatalists();
     }
   });
 
   $('btnSaveNewMaster')?.addEventListener('click', saveMasterFromModal);
+  $('btnCancelEditMaster')?.addEventListener('click', exitMasterEditMode);
 
-  // 點擊庫存卡片自動帶入品名與厚度
+  // 批次刪除分類 Modal
+  $('btnOpenCatModal')?.addEventListener('click', () => {
+    const listDiv = $('catCheckboxList');
+    if (!listDiv) return;
+    listDiv.innerHTML = categoriesList.map(c => `
+      <label style="display:flex; align-items:center; gap:8px; color:#fff; font-size:14px; cursor:pointer;">
+        <input type="checkbox" value="${c}" class="cat-del-chk" style="transform: scale(1.2);"> ${c}
+      </label>
+    `).join('');
+    $('catBatchModal').style.display = 'flex';
+  });
+
+  $('btnCloseCatBatchModal')?.addEventListener('click', () => {
+    $('catBatchModal').style.display = 'none';
+  });
+
+  $('btnConfirmBatchDelete')?.addEventListener('click', () => {
+    const chks = document.querySelectorAll('.cat-del-chk:checked');
+    const toDelete = Array.from(chks).map(c => c.value);
+    if (!toDelete.length) return alert('請至少勾選一個分類！');
+
+    if (confirm(`確定要刪除勾選的分類嗎？\n其名下的物料主檔將自動歸類至「其他」。`)) {
+      categoriesList = categoriesList.filter(c => !toDelete.includes(c));
+      inventoryData.forEach(item => {
+        if (toDelete.includes(item.category)) {
+          item.category = '其他';
+          saveMasterSilent(item);
+        }
+      });
+      if (!categoriesList.includes('其他')) categoriesList.push('其他');
+      saveCategoriesToCloud();
+      $('catBatchModal').style.display = 'none';
+      renderChips();
+      renderSummary();
+      updateDatalists();
+      alert('✅ 分類刪除成功，對應物料已自動移至「其他」！');
+    }
+  });
+
+  $('btnOpenCategoryPicker')?.addEventListener('click', openCatPicker);
+  $('btnCloseCategoryPicker')?.addEventListener('click', closeCatPicker);
+  $('categoryPickerModal')?.addEventListener('click', e => {
+    if (e.target.id === 'categoryPickerModal') closeCatPicker();
+  });
+
   document.addEventListener('click', e => {
     let card = e.target.closest('.stock-card-item');
     if (card) {
@@ -132,7 +196,6 @@ function setupEvents() {
     }
   });
 
-  // 💡 關鍵修正：確保入庫呼叫 'IN'，出庫呼叫 'OUT'
   $('btnIn')?.addEventListener('click', () => handleTx('IN'));
   $('btnOut')?.addEventListener('click', () => handleTx('OUT'));
 }
@@ -143,20 +206,27 @@ function openMasterModal(name = '', thick = '') {
   if ($('newMasterCategory')) $('newMasterCategory').value = categoriesList[0] || '其他';
   if ($('newMasterThickness')) $('newMasterThickness').value = normStr(thick);
   if ($('newMasterSize')) $('newMasterSize').value = '';
-  if ($('newMasterSafetyStock')) $('newMasterSafetyStock').value = '0';
-  if ($('newMasterMoq')) $('newMasterMoq').value = '0';
+  if ($('newMasterSafetyStock')) $('newMasterSafetyStock').value = '';
+  if ($('newMasterMoq')) $('newMasterMoq').value = '';
   if ($('masterModal')) $('masterModal').style.display = 'flex';
   setTimeout(() => $('newMasterName')?.focus(), 100);
 }
 
 function closeMasterModal() {
   if ($('masterModal')) $('masterModal').style.display = 'none';
+  exitMasterEditMode();
+}
+
+function exitMasterEditMode() {
+  editingMasterId = null;
+  if ($('btnCancelEditMaster')) $('btnCancelEditMaster').style.display = 'none';
+  if ($('editingBadge')) $('editingBadge').style.display = 'none';
 }
 
 function openCatPicker() {
   const grid = $('categoryPickerGrid');
   if (!grid) return;
-  grid.innerHTML = categoriesList.map(c => `<button type="button" class="cat-picker-btn" data-cat="${c}" style="padding:10px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;">${c}</button>`).join('');
+  grid.innerHTML = categoriesList.map(c => `<button type="button" class="cat-picker-btn" data-cat="${c}" style="padding:10px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:13px;">${c}</button>`).join('');
   
   grid.querySelectorAll('.cat-picker-btn').forEach(btn => {
     btn.onclick = () => {
@@ -191,6 +261,11 @@ async function saveMasterFromModal() {
     moq: moq
   };
 
+  if (!categoriesList.includes(category)) {
+    categoriesList.push(category);
+    saveCategoriesToCloud();
+  }
+
   try {
     setBar(true);
     let res = await fetch(GAS_WEB_APP_URL, {
@@ -200,7 +275,7 @@ async function saveMasterFromModal() {
     });
     let r = await res.json();
     if (r.status === 'success') {
-      alert(`✅ 成功新增物料主檔：「${name}」！`);
+      alert(`✅ 成功儲存物料主檔：「${name}」！`);
       closeMasterModal();
       fetchInventoryData();
     } else {
@@ -212,6 +287,14 @@ async function saveMasterFromModal() {
   } finally {
     setBar(false);
   }
+}
+
+async function saveMasterSilent(item) {
+  await fetch(GAS_WEB_APP_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ action: "saveMaster", master: item })
+  });
 }
 
 async function saveCategoriesToCloud() {
@@ -237,14 +320,17 @@ async function handleTx(type) {
     return;
   }
 
+  // 嚴格檢查出庫庫存
+  if (type === 'OUT' && Number(found.qty || 0) < qty) {
+    return alert(`❌ 庫存不足！目前庫存僅剩 ${found.qty || 0}，無法出庫 ${qty} 個！`);
+  }
+
   try {
     setBar(true);
-    let logObj = { id: Date.now(), type: type, materialName: name, thickness: thick || found.thickness || '0', qty, time: new Date().toLocaleString() };
-    
     let res = await fetch(GAS_WEB_APP_URL, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action: type.toLowerCase(), log: logObj })
+      body: JSON.stringify({ action: type.toLowerCase(), materialName: name, thickness: thick || found.thickness || '0', qty: qty })
     });
     let r = await res.json();
 
