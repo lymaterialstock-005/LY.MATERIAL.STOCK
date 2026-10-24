@@ -2,7 +2,7 @@
  * 📊 全面雲端化入出庫兼採購系統 - 前端主程式 (app.js)
  */
 
-const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbjYhpL81dASZ0VQx6-OfidxmEDkfNkE42Nh_mTGYaurzhzPHLngzgWLDLnA-yjxA/exec';
+const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxy_Gi5GedFvv_5QjWNnIY1y8volcTW39jyTWnoECJlDk_VNkkw30ChOeso3DI8AKDA/exec';
 
 let inventoryData = [], categoriesList = [
   '德昱興', '華立', '樂榮', '羅傑斯', '昶瑞', '倍速', '好加', '冠好', 
@@ -345,6 +345,7 @@ async function handleTx(type) {
 
     if (r.status === 'success') {
       alert(type === 'IN' ? "✅ 入庫成功！" : "✅ 出庫成功！");
+      if ($('txQty')) $('txQty': '') // 修正欄位清空
       if ($('txQty')) $('txQty').value = '';
       if ($('txMaterialName')) $('txMaterialName').value = '';
       if ($('txThickness')) $('txThickness').value = '';
