@@ -1,5 +1,5 @@
 /**
- * 全面雲端化入出庫兼採購系統 - app.js (含除錯追蹤)
+ * 全面雲端化入出庫兼採購系統 - app.js (功能修復版)
  */
 
 const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwqFoRX-lMt38ho00ACFIF6AsjSOgkT8LTKVed0kYAm1ZyDh5qYW7Rz-t-P3KDwx3oMZQ/exec';
@@ -16,26 +16,16 @@ document.addEventListener('DOMContentLoaded', () => {
 async function fetchInventoryData() {
     try {
         setBar(true);
-        console.log("正在向雲端發送請求...");
-        
         const res = await fetch(`${GAS_WEB_APP_URL}?action=getInventory`);
         const data = await res.json();
         
-        // 💡 關鍵除錯：把後端回傳的原始資料完整印在 Eruda 控制台中
-        console.log("✅ 成功收到後端回應資料：", data);
-
         if (data && data.status === 'success') {
             inventoryData = data.inventory || [];
-            console.log("解析後的 inventory 陣列長度：", inventoryData.length);
-            
             renderCat();
             renderSummary();
-        } else {
-            console.warn("後端狀態非 success：", data);
         }
     } catch (e) {
-        // 💡 如果發生網路或解析錯誤，會直接印在控制台
-        console.error("❌ 載入失敗例外錯誤：", e);
+        console.error("載入失敗：", e);
     } finally {
         setBar(false);
     }
@@ -44,7 +34,6 @@ async function fetchInventoryData() {
 function renderCat() {
     const container = documentGet('categoryChips');
     if (!container) return;
-    // 分類渲染邏輯
 }
 
 function renderSummary() {
@@ -84,6 +73,16 @@ function setupEvents() {
 
     documentGet('btnIn')?.addEventListener('click', () => handleTx('IN'));
     documentGet('btnOut')?.addEventListener('click', () => handleTx('OUT'));
+
+    // 點擊卡片直接帶入品名與厚度
+    document.addEventListener('click', e => {
+        let card = e.target.closest('.stock-card-item');
+        if (card) {
+            if (documentGet('txMaterialName')) documentGet('txMaterialName').value = norm(card.dataset.name);
+            if (documentGet('txThickness')) documentGet('txThickness').value = norm(card.dataset.thick);
+            documentGet('txCard')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    });
 }
 
 async function handleTx(type) {
@@ -95,10 +94,16 @@ async function handleTx(type) {
 
     try {
         setBar(true);
+        // 💡 修正：嚴格依據按鈕傳入的 type ('IN' 或 'OUT') 轉為小寫送給後端
         let res = await fetch(GAS_WEB_APP_URL, {
             method: "POST",
             headers: { "Content-Type": "text/plain;charset=utf-8" },
-            body: JSON.stringify({ action: type.toLowerCase(), materialName: name, thickness: thick, qty: qty })
+            body: JSON.stringify({ 
+                action: type.toLowerCase(), // 'in' 或 'out'
+                materialName: name, 
+                thickness: thick, 
+                qty: qty 
+            })
         });
         let r = await res.json();
         if (r.status === 'success') {
@@ -121,7 +126,7 @@ async function handleTx(type) {
 function setBar(loading) {
     let bar = documentGet('status-bar');
     if (bar) {
-        bar.innerText = loading ? '⏳ 正在連線至雲端資料庫...' : '🟢 系統就緒';
+        bar.innerText = loading ? '⏳ 正在同步...' : '🟢 系統就緒';
         bar.style.backgroundColor = loading ? '#d97706' : '#166534';
     }
 }
