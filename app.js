@@ -21,11 +21,15 @@ document.addEventListener("DOMContentLoaded", () => {
 async function fetchInventoryData() {
   try {
     setBar(true);
-    let res = await fetch(GAS_WEB_APP_URL + "?action=getInventory");
+    // 💡 加上防快取時間戳記，確保每次都從 GAS 抓到最新資料
+    let res = await fetch(GAS_WEB_APP_URL + "?action=getInventory&t=" + Date.now());
     let data = await res.json();
+    
     if (data && data.status === 'success') {
       inventoryData = data.inventory || [];
-      if (data.categories && data.categories.length > 0) categoriesList = data.categories;
+      if (data.categories && data.categories.length > 0) {
+        categoriesList = data.categories;
+      }
       
       inventoryData.forEach(i => {
         if (i.category && !categoriesList.includes(i.category)) {
@@ -35,7 +39,9 @@ async function fetchInventoryData() {
 
       renderChips();
       renderSummary();
-      setupDaturlistTrigger();
+      updateDatalists();
+    } else {
+      console.error("API 回傳狀態異常：", data);
     }
   } catch (e) {
     console.error("載入失敗：", e);
@@ -44,23 +50,15 @@ async function fetchInventoryData() {
   }
 }
 
-// 💡 智慧快選控制：手動輸入「至少 1 個字」後才動態載入選項
-function setupDaturlistTrigger() {
-  const input = $('txMaterialName');
-  const datalist = $('materialListOptions');
-  if (!input || !datalist) return;
-
-  input.addEventListener('input', () => {
-    let val = input.value.trim();
-    if (val.length >= 1) {
-      datalist.innerHTML = inventoryData
-        .filter(i => normStr(i.name).includes(normStr(val)))
-        .map(i => `<option value="${i.name}">`)
-        .join('');
-    } else {
-      datalist.innerHTML = '';
-    }
-  });
+function updateDatalists() {
+  const matList = $('materialListOptions');
+  if (matList) {
+    matList.innerHTML = inventoryData.map(i => `<option value="${i.name}">`).join('');
+  }
+  const catList = $('categoryListOptions');
+  if (catList) {
+    catList.innerHTML = categoriesList.map(c => `<option value="${c}">`).join('');
+  }
 }
 
 function renderChips() {
@@ -73,6 +71,7 @@ function renderChips() {
 function renderSummary() {
   const div = $('inventoryStockSummary');
   if (!div) return;
+  
   let list = inventoryData;
   if (currentCat === 'WARN') {
     list = inventoryData.filter(i => Number(i.safetyStock) > 0 && Number(i.qty || 0) <= Number(i.safetyStock));
@@ -80,7 +79,7 @@ function renderSummary() {
     list = inventoryData.filter(i => i.category === currentCat);
   }
 
-  if (!list.length) {
+  if (!list || list.length === 0) {
     div.innerHTML = `<div style="padding:20px;text-align:center;color:#888;">目前無物料資料</div>`;
     return;
   }
@@ -102,6 +101,10 @@ function renderSummary() {
 }
 
 function setupEvents() {
+  // 點擊輸入框自動選取全選，避免文字殘留
+  $('txMaterialName')?.addEventListener('focus', function() { this.select(); });
+  $('txQty')?.addEventListener('focus', function() { this.select(); });
+
   $('categoryChips')?.addEventListener('click', e => {
     if (e.target.classList.contains('chip')) {
       currentCat = e.target.dataset.cat;
@@ -119,7 +122,7 @@ function setupEvents() {
     $('btnToggleSummary').innerText = isCollapsed ? '展開 ▼' : '收起 ▲';
   });
 
-  // 💡 點擊 ＋ 按鈕時開啟主檔管理，強制所有欄位（分類、名稱、厚度、尺寸、安全庫存、MOQ）完全歸零與清空
+  // 點擊 ＋ 按鈕開啟主檔管理 (完全清空)
   $('btnAddMasterQuick')?.addEventListener('click', () => {
     openMasterModal('', '');
   });
@@ -139,18 +142,20 @@ function setupEvents() {
       }
       if ($('newMasterCategory')) $('newMasterCategory').value = trimmed;
       renderChips();
+      updateDatalists();
     }
   });
 
   $('btnSaveNewMaster')?.addEventListener('click', saveMasterFromModal);
   $('btnCancelEditMaster')?.addEventListener('click', exitMasterEditMode);
 
+  // 批次刪除分類 Modal
   $('btnOpenCatModal')?.addEventListener('click', () => {
     const listDiv = $('catCheckboxList');
     if (!listDiv) return;
     listDiv.innerHTML = categoriesList.map(c => `
-      <label class="cat-del-label">
-        <input type="checkbox" value="${c}" class="cat-del-chk"> ${c}
+      <label style="display:flex; align-items:center; gap:10px; color:#fff; font-size:14px; cursor:pointer; padding:4px 0;">
+        <input type="checkbox" value="${c}" class="cat-del-chk" style="width:18px; height:18px;"> ${c}
       </label>
     `).join('');
     $('catBatchModal').style.display = 'flex';
@@ -173,11 +178,12 @@ function setupEvents() {
           saveMasterSilent(item);
         }
       });
-      if (!categoriesList.includes('其他')) categoriesList.push('其他');
+      if (!categoriesList.includes('other') && !categoriesList.includes('其他')) categoriesList.push('其他');
       saveCategoriesToCloud();
       $('catBatchModal').style.display = 'none';
       renderChips();
       renderSummary();
+      updateDatalists();
       alert('✅ 分類刪除成功，對應物料已自動移至「其他」！');
     }
   });
@@ -203,10 +209,10 @@ function setupEvents() {
 
 function openMasterModal(name = '', thick = '') {
   editingMasterId = Date.now();
-  // 💡 強制清空所有欄位：分類、名稱、厚度、尺寸、安全庫存、MOQ
-  if ($('newMasterCategory')) $('newMasterCategory').value = '';
-  if ($('newMasterName')) $('newMasterName').value = name;
-  if ($('newMasterThickness')) $('newMasterThickness').value = thick;
+  // 💡 強制清空所有欄位，防止任何殘留字串
+  if ($('newMasterName')) $('newMasterName').value = name ? normStr(name) : '';
+  if ($('newMasterCategory')) $('newMasterCategory').value = categoriesList[0] || '其他';
+  if ($('newMasterThickness')) $('newMasterThickness').value = thick ? normStr(thick) : '';
   if ($('newMasterSize')) $('newMasterSize').value = '';
   if ($('newMasterSafetyStock')) $('newMasterSafetyStock').value = '';
   if ($('newMasterMoq')) $('newMasterMoq').value = '';
@@ -222,6 +228,7 @@ function closeMasterModal() {
 function exitMasterEditMode() {
   editingMasterId = null;
   if ($('btnCancelEditMaster')) $('btnCancelEditMaster').style.display = 'none';
+  if ($('editingBadge')) $('editingBadge').style.display = 'none';
 }
 
 function openCatPicker() {
@@ -244,7 +251,7 @@ function closeCatPicker() {
 
 async function saveMasterFromModal() {
   let name = normStr($('newMasterName')?.value);
-  let category = $('newMasterCategory')?.value.trim() || '其他';
+  let category = $('newMasterCategory')?.value || '其他';
   let thickness = normStr($('newMasterThickness')?.value);
   let size = normStr($('newMasterSize')?.value);
   let safetyStock = Number($('newMasterSafetyStock')?.value) || 0;
