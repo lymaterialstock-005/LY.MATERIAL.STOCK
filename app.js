@@ -1,5 +1,5 @@
 /**
- * 全面雲端化入出庫兼採購系統 - app.js
+ * 全面雲端化入出庫兼採購系統 - app.js (含除錯追蹤)
  */
 
 const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwqFoRX-lMt38ho00ACFIF6AsjSOgkT8LTKVed0kYAm1ZyDh5qYW7Rz-t-P3KDwx3oMZQ/exec';
@@ -16,20 +16,26 @@ document.addEventListener('DOMContentLoaded', () => {
 async function fetchInventoryData() {
     try {
         setBar(true);
+        console.log("正在向雲端發送請求...");
+        
         const res = await fetch(`${GAS_WEB_APP_URL}?action=getInventory`);
         const data = await res.json();
         
+        // 💡 關鍵除錯：把後端回傳的原始資料完整印在 Eruda 控制台中
+        console.log("✅ 成功收到後端回應資料：", data);
+
         if (data && data.status === 'success') {
-            // 這裡修正為對應後端的 inventory 屬性
             inventoryData = data.inventory || [];
-            if (data.categories && data.categories.length > 0) {
-                // 如果需要同步分類也可以在這裡處理
-            }
+            console.log("解析後的 inventory 陣列長度：", inventoryData.length);
+            
             renderCat();
             renderSummary();
+        } else {
+            console.warn("後端狀態非 success：", data);
         }
     } catch (e) {
-        console.error("載入失敗：", e);
+        // 💡 如果發生網路或解析錯誤，會直接印在控制台
+        console.error("❌ 載入失敗例外錯誤：", e);
     } finally {
         setBar(false);
     }
@@ -38,7 +44,7 @@ async function fetchInventoryData() {
 function renderCat() {
     const container = documentGet('categoryChips');
     if (!container) return;
-    // 這裡維持您原本的分類渲染邏輯
+    // 分類渲染邏輯
 }
 
 function renderSummary() {
