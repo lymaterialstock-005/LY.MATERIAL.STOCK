@@ -2,7 +2,7 @@
  * 📊 全面雲端化入出庫兼採購系統 - 前端主程式 (app.js)
  */
 
-const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzltIlYqarOdt53U-HvpEpozqtjehZhHMkz7-OC8kITFODIS_LvhZMBtvf2ybc1LzF1g/exec';
+const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycby_9Zmci7dtfX9Ud2vsvfXypBT9FncpQlYEGBQVwhdJ1q1egOkbj9jgrzHD8Yg2../exec';
 
 let inventoryData = [], categoriesList = [
   '德昱興', '華立', '樂榮', '羅傑斯', '昶瑞', '倍速', '好加', '冠好', 
@@ -18,21 +18,14 @@ document.addEventListener("DOMContentLoaded", () => {
   setupEvents();
 });
 
-// 💡 採用「文字代理模式」，完美避開行動端跨網域重新導向造成的 TypeError
-async function fetchInventoryData() {
-  try {
-    setBar(true);
-    let res = await fetch(GAS_WEB_APP_URL + "?action=getInventory&t=" + Date.now(), { redirect: 'follow' });
-    let text = await res.text();
-    
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch (err) {
-      console.warn("回傳內容非純 JSON，嘗試清洗...", text);
-      // 若包含 HTML 或重新導向字串，提供安全預設值
-      data = { status: 'success', inventory: [], categories: categoriesList };
-    }
+// 💡 透過 JavaScript 回呼機制安全載入雲端資料，徹底避開跨網域與重新導向的 TypeError
+function fetchInventoryData() {
+  setBar(true);
+  const callbackName = 'loadInventoryData';
+  
+  // 註冊全域回呼函數
+  window[callbackName] = function(data) {
+    document.getElementById('jsonp-script')?.remove();
     
     if (data && data.status === 'success') {
       inventoryData = data.inventory || [];
@@ -46,14 +39,22 @@ async function fetchInventoryData() {
         }
       });
     }
-  } catch (e) {
-    console.warn("載入發生例外，已啟動安全檢視模式：", e);
-  } finally {
     renderChips();
     renderSummary();
     updateDatalists();
     setBar(false);
-  }
+  };
+
+  const script = document.createElement('script');
+  script.id = 'jsonp-script';
+  script.src = `${GAS_WEB_APP_URL}?action=getInventory&callback=${callbackName}&t=${Date.now()}`;
+  script.onerror = function() {
+    setBar(false);
+    renderChips();
+    renderSummary();
+    console.error("資料載入失敗");
+  };
+  document.body.appendChild(script);
 }
 
 function updateDatalists() {
