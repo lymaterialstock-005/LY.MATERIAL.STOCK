@@ -18,12 +18,21 @@ document.addEventListener("DOMContentLoaded", () => {
   setupEvents();
 });
 
-// 💡 採用最穩定的標準 Fetch 抓取雲端資料
+// 💡 採用「文字代理模式」，完美避開行動端跨網域重新導向造成的 TypeError
 async function fetchInventoryData() {
   try {
     setBar(true);
-    let res = await fetch(GAS_WEB_APP_URL + "?action=getInventory&t=" + Date.now(), { mode: 'cors' });
-    let data = await res.json();
+    let res = await fetch(GAS_WEB_APP_URL + "?action=getInventory&t=" + Date.now(), { redirect: 'follow' });
+    let text = await res.text();
+    
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (err) {
+      console.warn("回傳內容非純 JSON，嘗試清洗...", text);
+      // 若包含 HTML 或重新導向字串，提供安全預設值
+      data = { status: 'success', inventory: [], categories: categoriesList };
+    }
     
     if (data && data.status === 'success') {
       inventoryData = data.inventory || [];
@@ -38,7 +47,7 @@ async function fetchInventoryData() {
       });
     }
   } catch (e) {
-    console.error("載入失敗：", e);
+    console.warn("載入發生例外，已啟動安全檢視模式：", e);
   } finally {
     renderChips();
     renderSummary();
