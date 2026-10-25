@@ -2,7 +2,7 @@
  * 📊 全面雲端化入出庫兼採購系統 - 前端主程式 (app.js)
  */
 
-const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxy_Gi5GedFvv_5QjWNnIY1y8volcTW39jyTWnoECJlDk_VNkkw30ChOeso3DI8AKDA/exec';
+const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzltIlYqarOdt53U-HvpEpozqtjehZhHMkz7-OC8kITFODIS_LvhZMBtvf2ybc1LzF1g/exec';
 
 let inventoryData = [], categoriesList = [
   '德昱興', '華立', '樂榮', '羅傑斯', '昶瑞', '倍速', '好加', '冠好', 
@@ -18,87 +18,33 @@ document.addEventListener("DOMContentLoaded", () => {
   setupEvents();
 });
 
-// 💡 雙重保險載入機制：優先使用 JSONP，失敗時自動改用標準 Fetch 備援
-function fetchInventoryData() {
-  setBar(true);
-  const callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
-  let isLoaded = false;
-
-  window[callbackName] = function(data) {
-    if (isLoaded) return;
-    isLoaded = true;
-    delete window[callbackName];
-    document.getElementById('jsonp-script')?.remove();
-    
-    if (data && data.status === 'success') {
-      processInventoryData(data);
-    } else {
-      fallbackFetch();
-    }
-  };
-
-  const script = document.createElement('script');
-  script.id = 'jsonp-script';
-  script.src = `${GAS_WEB_APP_URL}?action=getInventory&callback=${callbackName}&t=${Date.now()}`;
-  
-  script.onerror = function() {
-    if (isLoaded) return;
-    isLoaded = true;
-    document.getElementById('jsonp-script')?.remove();
-    console.warn("JSONP 載入失敗，啟動標準 Fetch 備援機制...");
-    fallbackFetch();
-  };
-
-  document.body.appendChild(script);
-
-  // 逾時防護：若 5 秒內 JSONP 無回應，強制切換至 fetch
-  setTimeout(() => {
-    if (!isLoaded) {
-      isLoaded = true;
-      document.getElementById('jsonp-script')?.remove();
-      console.warn("JSONP 逾時，啟動標準 Fetch 備援機制...");
-      fallbackFetch();
-    }
-  }, 5000);
-}
-
-// 備援 Fetch 機制
-async function fallbackFetch() {
+// 💡 採用最穩定的標準 Fetch 抓取雲端資料
+async function fetchInventoryData() {
   try {
+    setBar(true);
     let res = await fetch(GAS_WEB_APP_URL + "?action=getInventory&t=" + Date.now(), { mode: 'cors' });
     let data = await res.json();
+    
     if (data && data.status === 'success') {
-      processInventoryData(data);
-    } else {
-      throw new Error("API 狀態非 success");
+      inventoryData = data.inventory || [];
+      if (data.categories && data.categories.length > 0) {
+        categoriesList = data.categories;
+      }
+      
+      inventoryData.forEach(i => {
+        if (i.category && !categoriesList.includes(i.category)) {
+          categoriesList.push(i.category);
+        }
+      });
     }
   } catch (e) {
-    console.error("備援 Fetch 也失敗：", e);
-    // 即使連線完全失敗，也確保畫面上的分類按鈕與容器能正常渲染
+    console.error("載入失敗：", e);
+  } finally {
     renderChips();
     renderSummary();
     updateDatalists();
-  } finally {
     setBar(false);
   }
-}
-
-function processInventoryData(data) {
-  inventoryData = data.inventory || [];
-  if (data.categories && data.categories.length > 0) {
-    categoriesList = data.categories;
-  }
-  
-  inventoryData.forEach(i => {
-    if (i.category && !categoriesList.includes(i.category)) {
-      categoriesList.push(i.category);
-    }
-  });
-
-  renderChips();
-  renderSummary();
-  updateDatalists();
-  setBar(false);
 }
 
 function updateDatalists() {
